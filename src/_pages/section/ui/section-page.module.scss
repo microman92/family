@@ -1,0 +1,42 @@
+.page {
+  display: grid;
+  gap: 24px;
+}
+.heading {
+  h1 {
+    font-size: 29px;
+    letter-spacing: -0.8px;
+    font-weight: 650;
+    margin: 0 0 6px;
+  }
+  p {
+    color: var(--muted-foreground);
+    margin: 0;
+    font-size: 14px;
+  }
+}
+.notice {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  a {
+    padding: 8px 13px;
+    font-size: 12px;
+    border-radius: 8px;
+    color: var(--muted-foreground);
+    text-decoration: none;
+    &:hover {
+      background: var(--secondary);
+    }
+  }
+  a.selected {
+    background: var(--accent);
+    color: var(--primary);
+    font-weight: 600;
+  }
+}

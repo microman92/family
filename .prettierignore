@@ -1,0 +1,15 @@
+node_modules
+.next
+package-lock.json
+Documentation.html
+PRD.md
+SPEC.md
+TASKS.md
+CHANGELOG.md
+README.md
+AGENTS.md
+.agents/skills/
+next-env.d.ts
+playwright-report
+test-results
+coverage

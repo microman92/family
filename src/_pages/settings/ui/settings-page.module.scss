@@ -1,0 +1,63 @@
+.page {
+  display: grid;
+  gap: 22px;
+  max-width: 820px;
+}
+.heading {
+  margin-bottom: 8px;
+  h1 {
+    font-size: 29px;
+    letter-spacing: -0.8px;
+    font-weight: 650;
+    margin: 0 0 6px;
+  }
+  p {
+    color: var(--muted-foreground);
+    margin: 0;
+    font-size: 14px;
+  }
+}
+.panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  padding: 25px;
+  > p {
+    margin: 14px 0 20px;
+    color: var(--muted-foreground);
+    font-size: 13px;
+    max-width: 650px;
+  }
+  > p:last-child {
+    margin-bottom: 0;
+  }
+}
+.panelHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  h2 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+  }
+  > svg {
+    color: var(--primary);
+  }
+}
+.panel > p.note {
+  font-size: 12px;
+}
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+@media (max-width: 600px) {
+  .panel {
+    padding: 20px 16px;
+  }
+}

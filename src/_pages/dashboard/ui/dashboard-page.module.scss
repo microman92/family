@@ -1,0 +1,271 @@
+.page {
+  display: grid;
+  gap: 28px;
+}
+.heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  h1 {
+    font-size: 29px;
+    letter-spacing: -0.9px;
+    margin: 0 0 4px;
+    font-weight: 650;
+  }
+  p {
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 14px;
+  }
+}
+.welcome {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  background: var(--highlight);
+  color: var(--highlight-foreground);
+  padding: 30px 34px;
+  border-radius: 16px;
+  gap: 24px;
+}
+.welcomeText {
+  h2 {
+    font-size: clamp(25px, 2.4vw, 32px);
+    line-height: 1.25;
+    letter-spacing: -0.8px;
+    font-weight: 650;
+    margin: 0 0 12px;
+  }
+  p {
+    max-width: 450px;
+    font-size: 14px;
+    margin: 0 0 23px;
+    line-height: 1.75;
+  }
+}
+.homeDrawing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px 24px;
+  color: var(--primary);
+  svg {
+    width: 96px;
+    height: 96px;
+  }
+}
+.sectionHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 16px;
+  h2 {
+    margin: 0;
+    font-size: 17px;
+    letter-spacing: -0.3px;
+    font-weight: 600;
+  }
+  > span {
+    color: var(--muted-foreground);
+    font-size: 12px;
+  }
+}
+.areas {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+.area {
+  position: relative;
+  padding: 22px 19px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  text-decoration: none;
+  transition: border-color 150ms;
+  h3 {
+    font-size: 15px;
+    margin: 17px 0 3px;
+    font-weight: 600;
+  }
+  p {
+    font-size: 12px;
+    color: var(--muted-foreground);
+    margin: 0;
+  }
+  &:hover {
+    border-color: var(--primary);
+  }
+}
+.areaIcon {
+  color: var(--primary);
+}
+.areaArrow {
+  position: absolute;
+  top: 23px;
+  right: 17px;
+  color: var(--muted-foreground);
+}
+.lowerGrid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 22px;
+}
+.today {
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: 14px;
+  padding: 24px;
+}
+.emptyAgenda {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  padding: 30px 16px 18px;
+  color: var(--muted-foreground);
+  > svg {
+    margin-bottom: 14px;
+    color: var(--primary);
+  }
+  h3 {
+    color: var(--foreground);
+    margin: 0 0 8px;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  p {
+    max-width: 305px;
+    font-size: 12px;
+    margin: 0;
+    line-height: 1.8;
+  }
+  a {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--primary);
+    font-size: 12px;
+    margin-top: 20px;
+    text-underline-offset: 4px;
+  }
+}
+.startPanel {
+  padding: 24px 26px;
+  background: transparent;
+  h2 {
+    margin: 10px 0;
+    font-size: 17px;
+    font-weight: 600;
+  }
+  > p {
+    font-size: 13px;
+    color: var(--muted-foreground);
+    margin: 0 0 20px;
+  }
+  ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 18px;
+  }
+  li {
+    border-left: 2px solid var(--border);
+    padding-left: 14px;
+    span {
+      font-size: 12px;
+      color: var(--muted-foreground);
+    }
+    strong {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      margin: 3px 0;
+    }
+    a,
+    p {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      margin: 0;
+      color: var(--muted-foreground);
+    }
+    a {
+      color: var(--primary);
+      text-underline-offset: 4px;
+    }
+  }
+}
+.startIcon {
+  color: var(--primary);
+}
+.phaseNote {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+@media (min-width: 1500px) {
+  .welcome {
+    padding-block: 34px;
+  }
+}
+@media (max-width: 1050px) {
+  .areas {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .lowerGrid {
+    grid-template-columns: 1fr;
+  }
+  .welcome {
+    padding: 28px;
+  }
+  .homeDrawing svg {
+    max-width: 180px;
+  }
+}
+@media (max-width: 600px) {
+  .heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+    h1 {
+      font-size: 26px;
+    }
+    p {
+      font-size: 13px;
+      max-width: 260px;
+    }
+  }
+  .welcome {
+    grid-template-columns: 1fr;
+    padding: 25px 22px;
+  }
+  .homeDrawing {
+    display: none;
+  }
+  .welcomeText h2 {
+    font-size: 27px;
+  }
+  .sectionHeading > span {
+    display: none;
+  }
+  .area {
+    padding: 19px 15px;
+  }
+  .areaArrow {
+    right: 13px;
+    top: 20px;
+  }
+  .area p {
+    font-size: 12px;
+  }
+  .page {
+    gap: 24px;
+  }
+  .today,
+  .startPanel {
+    padding: 21px;
+  }
+}
