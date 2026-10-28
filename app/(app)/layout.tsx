@@ -29,7 +29,7 @@ export default async function ApplicationLayout({ children }: { children: React.
       .single();
     if (familyError || !family) throw new Error('Не удалось загрузить семью');
     familyName = family.name;
-    email = user.email ?? 'Участник';
+    email = user.email?.trim() || 'Участник';
   }
   return (
     <AppShell userLabel={email} signOut={email ? signOut : undefined} familyName={familyName}>

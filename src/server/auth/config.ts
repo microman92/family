@@ -7,13 +7,17 @@ export function getSupabaseConfig() {
   return { url, key };
 }
 
+export function getTelegramBotUsername() {
+  const username = process.env.TELEGRAM_BOT_USERNAME?.trim().replace(/^@/, '');
+  return username && /^[a-zA-Z0-9_]{5,32}$/.test(username) ? username : null;
+}
+
 export function isTelegramInviteConfigured() {
-  const username = process.env.TELEGRAM_BOT_USERNAME;
+  const username = getTelegramBotUsername();
   const publicUrl = process.env.NEXT_PUBLIC_APP_URL;
   if (
     !getSupabaseConfig() ||
     !username ||
-    !/^[a-zA-Z0-9_]{5,32}$/.test(username) ||
     !process.env.TELEGRAM_BOT_TOKEN ||
     !process.env.TELEGRAM_WEBHOOK_SECRET ||
     !process.env.TELEGRAM_OIDC_CLIENT_ID ||

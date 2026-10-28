@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 import { emailSchema, familyNameSchema, passwordSchema, type AuthState } from '@/shared/lib/auth';
 import { createAuthClient } from './client';
-import { getSupabaseConfig, isTelegramInviteConfigured } from './config';
+import { getSupabaseConfig, getTelegramBotUsername, isTelegramInviteConfigured } from './config';
 import { createHash, randomBytes } from 'node:crypto';
 import QRCode from 'qrcode';
 import { safeAuthDestination, type InviteState } from '@/shared/lib/auth';
@@ -107,7 +107,7 @@ export async function signOut() {
 }
 
 export async function createInvite(_previous: InviteState, form: FormData): Promise<InviteState> {
-  const username = process.env.TELEGRAM_BOT_USERNAME;
+  const username = getTelegramBotUsername();
   if (!isTelegramInviteConfigured() || !username)
     return { error: 'Приглашения через Telegram пока не настроены.' };
   const role = form.get('role');
