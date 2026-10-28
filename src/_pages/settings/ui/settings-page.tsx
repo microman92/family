@@ -1,8 +1,10 @@
 import { ThemeSwitcher } from '@/features/theme-switcher';
 import { Badge, Icon } from '@/shared/ui';
+import { ProfileSettings } from '@/features/profile';
+import type { ComponentProps } from 'react';
 import styles from './settings-page.module.scss';
 
-export function SettingsPage() {
+export function SettingsPage({ profile }: { profile?: ComponentProps<typeof ProfileSettings> }) {
   return (
     <div className={styles.page}>
       <header className={styles.heading}>
@@ -21,9 +23,9 @@ export function SettingsPage() {
         <div className={styles.panelHeader}>
           <Icon name="family" />
           <h2 id="profile-title">Ваш профиль</h2>
-          <Badge>После входа</Badge>
+          {!profile && <Badge>После входа</Badge>}
         </div>
-        <p>Имя, день рождения и часовой пояс можно будет настроить после подключения аккаунта.</p>
+        {profile ? <ProfileSettings {...profile} /> : <p>Войдите, чтобы настроить свой профиль.</p>}
       </section>
       <section className={styles.panel} aria-labelledby="telegram-title">
         <div className={styles.panelHeader}>

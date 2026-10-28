@@ -7,6 +7,7 @@ export const dynamic = 'force-dynamic';
 export default async function ApplicationLayout({ children }: { children: React.ReactNode }) {
   let email: string | null = null;
   let familyName: string | null = null;
+  let avatarUrl: string | null = null;
   if (getSupabaseConfig()) {
     const client = await createAuthClient(false);
     const {
@@ -29,10 +30,27 @@ export default async function ApplicationLayout({ children }: { children: React.
       .single();
     if (familyError || !family) throw new Error('Не удалось загрузить семью');
     familyName = family.name;
-    email = user.email?.trim() || 'Участник';
+    const { data: profile, error: profileError } = await client
+      .from('profiles')
+      .select('display_name,avatar_path')
+      .eq('user_id', user.id)
+      .single();
+    if (profileError || !profile) throw new Error('Не удалось загрузить профиль');
+    email = profile.display_name || user.email?.trim() || 'Участник';
+    if (profile.avatar_path) {
+      const { data } = await client.storage
+        .from('profile-avatars')
+        .createSignedUrl(profile.avatar_path, 3600);
+      avatarUrl = data?.signedUrl ?? null;
+    }
   }
   return (
-    <AppShell userLabel={email} signOut={email ? signOut : undefined} familyName={familyName}>
+    <AppShell
+      userLabel={email}
+      signOut={email ? signOut : undefined}
+      familyName={familyName}
+      avatarUrl={avatarUrl}
+    >
       {children}
     </AppShell>
   );

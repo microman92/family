@@ -37,12 +37,22 @@ describe('Семейные права и приглашения в PostgreSQL', 
       $$;
       grant usage on schema auth to anon, authenticated, service_role;
       grant execute on function auth.uid() to anon, authenticated, service_role;
+      create schema storage;
+      create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
+      create table storage.objects (bucket_id text, name text);
+      alter table storage.objects enable row level security;
+      grant usage on schema storage to authenticated;
+      grant select, insert, delete on storage.objects to authenticated;
+      create function storage.foldername(text) returns text[] language sql immutable as $$
+        select (string_to_array($1, '/'))[1:array_length(string_to_array($1, '/'), 1)-1];
+      $$;
     `);
     const migration = await readFile(
       'supabase/migrations/20261027000000_family_foundation.sql',
       'utf8',
     );
     await db.exec(migration);
+    await db.exec(await readFile('supabase/migrations/20261029000000_profile_avatars.sql', 'utf8'));
     await db.query(
       'insert into auth.users (id, email, raw_user_meta_data) values ($1, \'admin@example.com\', \'{"name":"Администратор"}\')',
       [users.admin],
@@ -63,6 +73,36 @@ describe('Семейные права и приглашения в PostgreSQL', 
 
   afterAll(async () => {
     await db?.close();
+  });
+
+  it('ограничивает аватары владельцем и запрещает чужие пути', async () => {
+    const ownPath = `${users.admin}/avatar.webp`;
+    await asUser(users.admin);
+    await db.query('update public.profiles set avatar_path = $1 where user_id = $2', [
+      ownPath,
+      users.admin,
+    ]);
+    await db.query('insert into storage.objects (bucket_id, name) values ($1, $2)', [
+      'profile-avatars',
+      ownPath,
+    ]);
+    await expect(
+      db.query('insert into storage.objects (bucket_id, name) values ($1, $2)', [
+        'profile-avatars',
+        `${users.member}/avatar.webp`,
+      ]),
+    ).rejects.toThrow();
+    await expect(
+      db.query('update public.profiles set avatar_path = $1 where user_id = $2', [
+        `${users.member}/avatar.webp`,
+        users.admin,
+      ]),
+    ).rejects.toThrow();
+    await asUser(users.member);
+    expect((await db.query('select * from storage.objects')).rows).toHaveLength(0);
+    await db.query('delete from storage.objects where name = $1', [ownPath]);
+    await asUser(users.admin);
+    expect((await db.query('select * from storage.objects')).rows).toHaveLength(1);
   });
 
   it('создаёт семью и изолирует её от другого пользователя', async () => {

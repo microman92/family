@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { ChevronDown, Ellipsis, Leaf, LogIn, PanelLeftClose } from 'lucide-react';
 import { useState } from 'react';
@@ -21,11 +22,13 @@ export function AppShell({
   userLabel,
   signOut,
   familyName,
+  avatarUrl,
 }: {
   children: React.ReactNode;
   userLabel?: string | null;
   signOut?: () => Promise<void>;
   familyName?: string | null;
+  avatarUrl?: string | null;
 }) {
   const pathname = usePathname();
   const [compact, setCompact] = useState(false);
@@ -115,7 +118,18 @@ export function AppShell({
               <DropdownMenuTrigger asChild>
                 <button className={styles.userButton} aria-label="Меню пользователя">
                   <span className={styles.userAvatar}>
-                    <Icon name="family" size={17} />
+                    {avatarUrl ? (
+                      <Image
+                        src={avatarUrl}
+                        alt=""
+                        width={34}
+                        height={34}
+                        unoptimized
+                        className={styles.avatarImage}
+                      />
+                    ) : (
+                      <Icon name="family" size={17} />
+                    )}
                   </span>
                   <span className={styles.userLabel}>{userLabel ?? 'Гость'}</span>
                   <ChevronDown size={14} aria-hidden="true" />
