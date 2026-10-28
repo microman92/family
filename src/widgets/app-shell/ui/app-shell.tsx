@@ -16,7 +16,17 @@ import {
 } from '@/shared/ui';
 import styles from './app-shell.module.scss';
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  userLabel,
+  signOut,
+  familyName,
+}: {
+  children: React.ReactNode;
+  userLabel?: string | null;
+  signOut?: () => Promise<void>;
+  familyName?: string | null;
+}) {
   const pathname = usePathname();
   const [compact, setCompact] = useState(false);
   const active = (href: string) =>
@@ -53,8 +63,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Icon name="family" size={18} />
           </span>
           <span>
-            <strong>Семейное пространство</strong>
-            <small>Ещё не создано</small>
+            <strong>{familyName ?? 'Семейное пространство'}</strong>
+            <small>{familyName ? 'Общее пространство' : 'Ещё не создано'}</small>
           </span>
         </div>
         <nav className={styles.navigation} aria-label="Основная навигация">
@@ -93,7 +103,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Leaf size={21} aria-hidden="true" />
             </span>
             <span className={styles.tagline}>Дом, где всё под рукой</span>
-            <Badge>Первый этап</Badge>
+            <Badge>В разработке</Badge>
           </div>
           <div className={styles.topbarActions}>
             <Button asChild variant="ghost" size="icon">
@@ -107,7 +117,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <span className={styles.userAvatar}>
                     <Icon name="family" size={17} />
                   </span>
-                  <span className={styles.userLabel}>Гость</span>
+                  <span className={styles.userLabel}>{userLabel ?? 'Гость'}</span>
                   <ChevronDown size={14} aria-hidden="true" />
                 </button>
               </DropdownMenuTrigger>
@@ -118,12 +128,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     Настройки
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/login">
-                    <LogIn />
-                    Вход в Family
-                  </Link>
-                </DropdownMenuItem>
+                {!signOut && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/login">
+                      <LogIn />
+                      Вход в Family
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                {signOut && (
+                  <form action={signOut}>
+                    <DropdownMenuItem asChild>
+                      <button type="submit">
+                        <LogIn />
+                        Выйти
+                      </button>
+                    </DropdownMenuItem>
+                  </form>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

@@ -1,6 +1,7 @@
 import Link from 'next/link';
-import { Leaf, Send } from 'lucide-react';
-import { Badge, Button, Input } from '@/shared/ui';
+import { Leaf } from 'lucide-react';
+import { AuthForm } from '@/features/auth';
+import type { AuthState } from '@/shared/lib/auth';
 import styles from './access-page.module.scss';
 
 const titles = {
@@ -9,9 +10,25 @@ const titles = {
   reset: 'Восстановление доступа',
   onboarding: 'Семья начинается с вас',
   invite: 'Вас ждут в Family',
+  update: 'Новый пароль',
 } as const;
 
-export function AccessPage({ kind = 'login' }: { kind?: keyof typeof titles }) {
+type Action = (state: AuthState, data: FormData) => Promise<AuthState>;
+export function AccessPage({
+  kind = 'login',
+  action,
+  telegram,
+  configured = false,
+  children,
+  error,
+}: {
+  kind?: keyof typeof titles;
+  action?: Action;
+  telegram?: Action;
+  configured?: boolean;
+  children?: React.ReactNode;
+  error?: string;
+}) {
   return (
     <main className={styles.page}>
       <Link href="/dashboard" className={styles.logo}>
@@ -19,33 +36,24 @@ export function AccessPage({ kind = 'login' }: { kind?: keyof typeof titles }) {
         Family Space
       </Link>
       <section className={styles.card} aria-labelledby="access-title">
-        <Badge>Первый этап</Badge>
         <h1 id="access-title">{titles[kind]}</h1>
         <p>
-          Вход и семейные приглашения появятся на следующем этапе. Сейчас можно познакомиться с
-          приложением.
+          {
+            {
+              login: 'Войдите в своё семейное пространство.',
+              register: 'Создайте личный аккаунт для семейного пространства.',
+              reset: 'Укажите почту, чтобы получить ссылку для восстановления.',
+              update: 'Введите новый пароль для своего аккаунта.',
+              onboarding: 'Создайте пространство для семьи.',
+              invite: 'Подтвердите приглашение после входа.',
+            }[kind]
+          }
         </p>
-        <Button disabled>
-          <Send aria-hidden="true" />
-          Войти через Telegram
-        </Button>
-        <div className={styles.email}>
-          <label htmlFor="email">Электронная почта</label>
-          <Input
-            id="email"
-            type="email"
-            autoComplete="email"
-            placeholder="name@example.com"
-            disabled
-            aria-describedby="auth-status"
-          />
-        </div>
-        <p id="auth-status" className={styles.status}>
-          Авторизация ещё не подключена. Данные не отправляются.
-        </p>
-        <Button asChild variant="outline">
-          <Link href="/dashboard">Посмотреть приложение</Link>
-        </Button>
+        {error && <p role="alert">{error}</p>}
+        {action && kind !== 'invite' && (
+          <AuthForm mode={kind} action={action} telegram={telegram} configured={configured} />
+        )}
+        {children}
         <nav className={styles.links} aria-label="Способы входа">
           <Link href="/login">Вход</Link>
           <Link href="/register">Регистрация</Link>

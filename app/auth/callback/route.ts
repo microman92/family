@@ -1,0 +1,22 @@
+import { NextResponse, type NextRequest } from 'next/server';
+import { createAuthClient, getSupabaseConfig } from '@/server/auth/index.server';
+import { safeAuthDestination } from '@/shared/lib/auth';
+
+export async function GET(request: NextRequest) {
+  const code = request.nextUrl.searchParams.get('code');
+  const next = safeAuthDestination(request.nextUrl.searchParams.get('next'));
+  if (code && getSupabaseConfig()) {
+    const client = await createAuthClient();
+    const { error } = await client.auth.exchangeCodeForSession(code);
+    if (!error) {
+      const origin = new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://127.0.0.1:3000').origin;
+      const response = NextResponse.redirect(new URL(next, origin));
+      response.headers.set('Cache-Control', 'private, no-store');
+      return response;
+    }
+  }
+  const origin = new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://127.0.0.1:3000').origin;
+  const response = NextResponse.redirect(new URL('/login?error=callback', origin));
+  response.headers.set('Cache-Control', 'private, no-store');
+  return response;
+}

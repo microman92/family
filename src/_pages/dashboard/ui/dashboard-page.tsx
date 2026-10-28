@@ -90,17 +90,14 @@ export function DashboardPage() {
               </Link>
             </li>
             <li>
-              <span>Следующий этап</span>
-              <strong>Войдите и пригласите близких</strong>
+              <span>Семья</span>
+              <strong>Пригласите близких</strong>
               <p>Через Telegram, ссылку или QR-код</p>
             </li>
           </ol>
         </section>
       </div>
-      <p className={styles.phaseNote}>
-        Сейчас доступен каркас приложения. Вход, хранение данных и уведомления подключаются
-        поэтапно.
-      </p>
+      <p className={styles.phaseNote}>Возможности разделов подключаются поэтапно.</p>
     </div>
   );
 }
