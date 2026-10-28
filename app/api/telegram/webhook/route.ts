@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
   const payload = data
     ? {
         chat_id: message.chat.id,
-        text: 'Вас приглашают в Family. Откройте ссылку и подтвердите вход через этот Telegram-аккаунт.',
+        text: 'Вас приглашают в Family. Откройте ссылку, войдите в приложение и подтвердите этот Telegram-аккаунт.',
         reply_markup: { inline_keyboard: [[{ text: 'Открыть приглашение', url: invitationUrl }]] },
       }
     : {

@@ -254,4 +254,93 @@ describe('Семейные права и приглашения в PostgreSQL', 
     await asUser(users.member);
     expect((await db.query('select id from public.families')).rows).toHaveLength(1);
   });
+
+  it('приглашает аккаунт Google после независимого подтверждения Telegram', async () => {
+    await db.exec('reset role');
+    await db.exec(
+      await readFile('supabase/migrations/20261029010000_google_invitation_binding.sql', 'utf8'),
+    );
+    const googleUser = '44444444-4444-4444-8444-444444444444';
+    await db.query("insert into auth.users (id, email) values ($1, 'google@example.com')", [
+      googleUser,
+    ]);
+    await asUser(users.member);
+    await db.query('select public.create_family_invite($1,$2)', [hash('google-invite'), 'member']);
+    await db.exec('reset role; set role service_role');
+    expect(
+      (
+        await db.query<{ ok: boolean }>(
+          'select public.prepare_telegram_invite($1,$2,$3,$4,$5) as ok',
+          [hash('google-invite'), hash('google-handoff'), '44444', '44444', 125],
+        )
+      ).rows[0]!.ok,
+    ).toBe(true);
+    expect(
+      (
+        await db.query<{ ok: boolean }>(
+          'select public.bind_verified_telegram_identity($1,$2,$3,$4) as ok',
+          [googleUser, 'google-telegram-subject', '99999', hash('google-handoff')],
+        )
+      ).rows[0]!.ok,
+    ).toBe(false);
+    await asUser(googleUser);
+    await expect(
+      db.query('select public.accept_telegram_invite($1)', [hash('google-handoff')]),
+    ).rejects.toThrow();
+    await db.exec('reset role; set role service_role');
+    expect(
+      (
+        await db.query<{ ok: boolean }>(
+          'select public.bind_verified_telegram_identity($1,$2,$3,$4) as ok',
+          [googleUser, 'google-telegram-subject', '44444', hash('google-handoff')],
+        )
+      ).rows[0]!.ok,
+    ).toBe(true);
+    await asUser(googleUser);
+    expect(
+      (await db.query('select * from public.inspect_telegram_invite($1)', [hash('google-handoff')]))
+        .rows,
+    ).toHaveLength(1);
+    expect(
+      (
+        await db.query<{ id: string }>('select public.accept_telegram_invite($1) as id', [
+          hash('google-handoff'),
+        ])
+      ).rows[0]!.id,
+    ).toBe(familyId);
+    await expect(
+      db.query('select public.accept_telegram_invite($1)', [hash('google-handoff')]),
+    ).rejects.toThrow();
+  });
+
+  it('после возврата к Telegram требует связанную identity для приглашения', async () => {
+    await db.exec('reset role');
+    await db.exec(
+      await readFile('supabase/migrations/20261029020000_restore_telegram_invitation.sql', 'utf8'),
+    );
+    await asUser(users.member);
+    await db.query('select public.create_family_invite($1,$2)', [hash('after-restore'), 'member']);
+    await db.exec('reset role; set role service_role');
+    await db.query('select public.prepare_telegram_invite($1,$2,$3,$4,$5)', [
+      hash('after-restore'),
+      hash('restore-handoff'),
+      '44444',
+      '44444',
+      126,
+    ]);
+    const googleUser = '44444444-4444-4444-8444-444444444444';
+    const result = await db.query<{ ok: boolean }>(
+      'select public.bind_verified_telegram_identity($1,$2,$3,$4) as ok',
+      [googleUser, 'google-telegram-subject', '44444', hash('restore-handoff')],
+    );
+    expect(result.rows[0]!.ok).toBe(false);
+    await asUser(googleUser);
+    expect(
+      (
+        await db.query('select * from public.inspect_telegram_invite($1)', [
+          hash('restore-handoff'),
+        ])
+      ).rows,
+    ).toHaveLength(0);
+  });
 });

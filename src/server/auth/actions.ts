@@ -163,7 +163,7 @@ export async function acceptInvite(handoff: string): Promise<AuthState> {
       error:
         error.code === '23505'
           ? 'Вы уже состоите в семье.'
-          : 'Приглашение недоступно. Убедитесь, что вошли через тот же Telegram-аккаунт.',
+          : 'Приглашение недоступно. Убедитесь, что подтвердили тот же Telegram-аккаунт.',
     };
   redirect('/dashboard');
 }

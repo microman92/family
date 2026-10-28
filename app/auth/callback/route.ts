@@ -16,7 +16,10 @@ export async function GET(request: NextRequest) {
     }
   }
   const origin = new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://127.0.0.1:3000').origin;
-  const response = NextResponse.redirect(new URL('/login?error=callback', origin));
+  const login = new URL('/login', origin);
+  login.searchParams.set('error', 'callback');
+  if (next.startsWith('/invite/')) login.searchParams.set('next', next);
+  const response = NextResponse.redirect(login);
   response.headers.set('Cache-Control', 'private, no-store');
   return response;
 }
