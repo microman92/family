@@ -19,6 +19,10 @@ export default defineConfig({
   webServer: {
     command: 'npm run start -- --port 3107',
     url: 'http://127.0.0.1:3107/dashboard',
+    env: {
+      NEXT_PUBLIC_SUPABASE_URL: '',
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: '',
+    },
     reuseExistingServer: false,
     timeout: 120_000,
   },

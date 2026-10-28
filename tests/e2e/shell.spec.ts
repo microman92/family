@@ -75,6 +75,7 @@ test('все маршруты доступны без фиктивной авт�
     expect(response?.status(), route).toBe(200);
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   }
+  await page.goto('/login');
   await expect(page.getByRole('button', { name: 'Войти через Telegram' })).toBeDisabled();
   const missing = await page.goto('/does-not-exist');
   expect(missing?.status()).toBe(404);
