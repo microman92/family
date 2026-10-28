@@ -32,6 +32,7 @@ export default async function Page({
       <AccessPage
         action={authenticateForInvite.bind(null, 'login', destination)}
         telegram={signInTelegramForInvite.bind(null, destination)}
+        inviteDestination={destination}
         configured={!!getSupabaseConfig()}
         error={
           error === 'callback'

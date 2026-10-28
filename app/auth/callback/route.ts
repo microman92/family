@@ -1,10 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createAuthClient, getSupabaseConfig } from '@/server/auth/index.server';
 import { safeAuthDestination } from '@/shared/lib/auth';
+import { getRememberedInvite } from '@/server/auth/invite-cookie';
 
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get('code');
-  const next = safeAuthDestination(request.nextUrl.searchParams.get('next'));
+  const next =
+    (await getRememberedInvite()) ?? safeAuthDestination(request.nextUrl.searchParams.get('next'));
   if (code && getSupabaseConfig()) {
     const client = await createAuthClient();
     const { error } = await client.auth.exchangeCodeForSession(code);

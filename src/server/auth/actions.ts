@@ -8,6 +8,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import QRCode from 'qrcode';
 import { safeAuthDestination, type InviteState } from '@/shared/lib/auth';
 import { beginTelegramBinding } from './telegram-bind';
+import { rememberInvite, clearRememberedInvite } from './invite-cookie';
 
 function appUrl() {
   return new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://127.0.0.1:3000').origin;
@@ -19,6 +20,7 @@ export async function authenticate(
   form: FormData,
 ): Promise<AuthState> {
   if (!getSupabaseConfig()) return { error: 'Сервис входа пока не настроен.' };
+  await clearRememberedInvite();
   const email = emailSchema.safeParse(form.get('email'));
   if (!email.success) return { error: 'Введите корректный email.' };
   const client = await createAuthClient();
@@ -53,10 +55,11 @@ export async function authenticate(
 
 export async function signInTelegram(): Promise<AuthState> {
   if (!getSupabaseConfig()) return { error: 'Сервис входа пока не настроен.' };
+  await clearRememberedInvite();
   const client = await createAuthClient();
   const { data, error } = await client.auth.signInWithOAuth({
     provider: 'custom:telegram',
-    options: { redirectTo: `${appUrl()}/auth/callback?next=/onboarding` },
+    options: { redirectTo: `${appUrl()}/auth/callback` },
   });
   if (error || !data.url)
     return { error: 'Вход через Telegram пока недоступен. Попробуйте позже.' };
@@ -96,6 +99,7 @@ export async function createFamily(_previous: AuthState, form: FormData): Promis
           ? 'Вы уже состоите в семье.'
           : 'Не удалось создать семью. Попробуйте позже.',
     };
+  await clearRememberedInvite();
   redirect('/dashboard');
 }
 
@@ -165,6 +169,7 @@ export async function acceptInvite(handoff: string): Promise<AuthState> {
           ? 'Вы уже состоите в семье.'
           : 'Приглашение недоступно. Убедитесь, что подтвердили тот же Telegram-аккаунт.',
     };
+  await clearRememberedInvite();
   redirect('/dashboard');
 }
 
@@ -174,29 +179,41 @@ export async function authenticateForInvite(
   previous: AuthState,
   form: FormData,
 ): Promise<AuthState> {
-  // Registration confirmation uses the default onboarding callback; invite recipients sign in through Telegram.
-  if (mode !== 'login') return authenticate(mode, previous, form);
+  if (mode === 'reset') return authenticate(mode, previous, form);
   if (!getSupabaseConfig()) return { error: 'Сервис входа пока не настроен.' };
   const email = emailSchema.safeParse(form.get('email'));
   const password = passwordSchema.safeParse(form.get('password'));
   if (!email.success || !password.success) return { error: 'Проверьте email и пароль.' };
   const client = await createAuthClient();
-  const { error } = await client.auth.signInWithPassword({
-    email: email.data,
-    password: password.data,
-  });
-  if (error) return { error: 'Не удалось войти. Проверьте email и пароль.' };
+  if (mode === 'register') {
+    if (!(await rememberInvite(destination)))
+      return { error: 'Ссылка приглашения недействительна.' };
+    const { data, error } = await client.auth.signUp({
+      email: email.data,
+      password: password.data,
+      options: { emailRedirectTo: `${appUrl()}/auth/callback` },
+    });
+    if (error)
+      return { error: 'Не удалось зарегистрироваться. Проверьте данные или попробуйте позже.' };
+    if (!data.session)
+      return { message: 'Проверьте почту и подтвердите регистрацию в этом браузере.' };
+  } else {
+    const { error } = await client.auth.signInWithPassword({
+      email: email.data,
+      password: password.data,
+    });
+    if (error) return { error: 'Не удалось войти. Проверьте email и пароль.' };
+  }
   redirect(safeAuthDestination(destination));
 }
 
 export async function signInTelegramForInvite(destination: string): Promise<AuthState> {
   if (!getSupabaseConfig()) return { error: 'Сервис входа пока не настроен.' };
+  if (!(await rememberInvite(destination))) return { error: 'Ссылка приглашения недействительна.' };
   const client = await createAuthClient();
-  const callback = new URL('/auth/callback', appUrl());
-  callback.searchParams.set('next', safeAuthDestination(destination));
   const { data, error } = await client.auth.signInWithOAuth({
     provider: 'custom:telegram',
-    options: { redirectTo: callback.toString() },
+    options: { redirectTo: new URL('/auth/callback', appUrl()).toString() },
   });
   if (error || !data.url)
     return { error: 'Вход через Telegram пока недоступен. Попробуйте позже.' };
@@ -282,6 +299,7 @@ export async function confirmTelegramIdentity(handoff: string): Promise<AuthStat
     error,
   } = await client.auth.getUser();
   if (error || !user) return { error: 'Войдите через Telegram и откройте приглашение снова.' };
+  await rememberInvite(`/invite/${handoff}`);
   const url = await beginTelegramBinding(handoff);
   redirect(url);
 }

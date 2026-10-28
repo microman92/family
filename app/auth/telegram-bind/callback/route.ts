@@ -2,11 +2,15 @@ import { createHash } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse, type NextRequest } from 'next/server';
 import { createAuthClient, finishTelegramBinding } from '@/server/auth/index.server';
+import { getRememberedInvite } from '@/server/auth/invite-cookie';
 
 export async function GET(request: NextRequest) {
   const origin = new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://127.0.0.1:3000').origin;
+  const invite = await getRememberedInvite();
   const failure = () => {
-    const response = NextResponse.redirect(new URL('/login?error=callback', origin));
+    const destination = new URL(invite ?? '/login', origin);
+    destination.searchParams.set('error', invite ? 'telegram' : 'callback');
+    const response = NextResponse.redirect(destination);
     response.headers.set('Cache-Control', 'private, no-store');
     response.headers.set('Referrer-Policy', 'no-referrer');
     return response;

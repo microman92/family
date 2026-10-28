@@ -14,6 +14,7 @@ const nextConfig: NextConfig = {
         ],
       },
       { source: '/login', headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }] },
+      { source: '/register', headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }] },
       {
         source: '/auth/callback',
         headers: [

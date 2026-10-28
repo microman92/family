@@ -11,8 +11,15 @@ import { createHash } from 'node:crypto';
 import { redirect } from 'next/navigation';
 
 export const metadata = { title: 'Приглашение в семью' };
-export default async function Page({ params }: { params: Promise<{ token: string }> }) {
+export default async function Page({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ token: string }>;
+  searchParams: Promise<{ error?: string }>;
+}) {
   const { token } = await params;
+  const { error: flowError } = await searchParams;
   if (!getSupabaseConfig())
     return (
       <AccessPage kind="invite">
@@ -36,7 +43,14 @@ export default async function Page({ params }: { params: Promise<{ token: string
   if (error || !Array.isArray(data)) throw new Error('Не удалось проверить приглашение');
   if (data.length === 0 && isTelegramInviteConfigured())
     return (
-      <AccessPage kind="invite">
+      <AccessPage
+        kind="invite"
+        error={
+          flowError === 'telegram'
+            ? 'Не удалось подтвердить Telegram. Попробуйте ещё раз в том же браузере.'
+            : undefined
+        }
+      >
         <p>
           Подтвердите Telegram-аккаунт, в котором вы открыли приглашение. Если ссылка истекла,
           попросите новую.

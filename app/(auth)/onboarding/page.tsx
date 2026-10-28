@@ -1,6 +1,7 @@
 import { AccessPage } from '@/_pages/access';
 import { createAuthClient, createFamily, getSupabaseConfig } from '@/server/auth/index.server';
 import { redirect } from 'next/navigation';
+import { getRememberedInvite } from '@/server/auth/invite-cookie';
 
 export const metadata = { title: 'Создание семьи' };
 export default async function Page() {
@@ -18,6 +19,8 @@ export default async function Page() {
       .maybeSingle();
     if (error) throw new Error('Не удалось проверить семейное пространство');
     if (membership) redirect('/dashboard');
+    const invite = await getRememberedInvite();
+    if (invite) redirect(invite);
   }
   return <AccessPage kind="onboarding" action={createFamily} configured={!!getSupabaseConfig()} />;
 }

@@ -21,6 +21,7 @@ export function AccessPage({
   configured = false,
   children,
   error,
+  inviteDestination,
 }: {
   kind?: keyof typeof titles;
   action?: Action;
@@ -28,6 +29,7 @@ export function AccessPage({
   configured?: boolean;
   children?: React.ReactNode;
   error?: string;
+  inviteDestination?: string;
 }) {
   return (
     <main className={styles.page}>
@@ -40,8 +42,12 @@ export function AccessPage({
         <p>
           {
             {
-              login: 'Войдите в своё семейное пространство.',
-              register: 'Создайте личный аккаунт для семейного пространства.',
+              login: inviteDestination
+                ? 'Войдите через Telegram, чтобы принять приглашение в семью.'
+                : 'Войдите в своё семейное пространство.',
+              register: inviteDestination
+                ? 'Войдите через Telegram, чтобы принять приглашение в семью.'
+                : 'Создайте личный аккаунт для семейного пространства.',
               reset: 'Укажите почту, чтобы получить ссылку для восстановления.',
               update: 'Введите новый пароль для своего аккаунта.',
               onboarding: 'Создайте пространство для семьи.',
@@ -51,12 +57,32 @@ export function AccessPage({
         </p>
         {error && <p role="alert">{error}</p>}
         {action && kind !== 'invite' && (
-          <AuthForm mode={kind} action={action} telegram={telegram} configured={configured} />
+          <AuthForm
+            mode={kind}
+            action={action}
+            telegram={telegram}
+            configured={configured}
+            telegramOnly={!!inviteDestination}
+          />
         )}
         {children}
         <nav className={styles.links} aria-label="Способы входа">
-          <Link href="/login">Вход</Link>
-          <Link href="/register">Регистрация</Link>
+          <Link
+            href={
+              inviteDestination ? `/login?next=${encodeURIComponent(inviteDestination)}` : '/login'
+            }
+          >
+            Вход
+          </Link>
+          <Link
+            href={
+              inviteDestination
+                ? `/register?next=${encodeURIComponent(inviteDestination)}`
+                : '/register'
+            }
+          >
+            Регистрация
+          </Link>
           <Link href="/reset-password">Забыли пароль?</Link>
         </nav>
       </section>
