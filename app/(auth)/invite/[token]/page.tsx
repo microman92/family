@@ -16,10 +16,10 @@ export default async function Page({
   searchParams,
 }: {
   params: Promise<{ token: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; reason?: string }>;
 }) {
   const { token } = await params;
-  const { error: flowError } = await searchParams;
+  const { error: flowError, reason } = await searchParams;
   if (!getSupabaseConfig())
     return (
       <AccessPage kind="invite">
@@ -29,7 +29,11 @@ export default async function Page({
   if (!/^[A-Za-z0-9_-]{32}$/.test(token))
     return (
       <AccessPage kind="invite">
-        <p>Ссылка недействительна или истекла.</p>
+        <p>
+          {flowError === 'lost'
+            ? 'Не удалось продолжить подтверждение. Откройте последнюю ссылку от бота в браузере, в котором входили, и попробуйте снова.'
+            : 'Ссылка недействительна или истекла.'}
+        </p>
       </AccessPage>
     );
   const client = await createAuthClient(false);
@@ -47,7 +51,9 @@ export default async function Page({
         kind="invite"
         error={
           flowError === 'telegram'
-            ? 'Не удалось подтвердить Telegram. Попробуйте ещё раз в том же браузере.'
+            ? reason === 'binding'
+              ? 'Не удалось связать Telegram с приглашением. Убедитесь, что вошли через тот же аккаунт, в котором открыли бота.'
+              : 'Не удалось подтвердить Telegram. Откройте приглашение и попробуйте ещё раз в том же браузере.'
             : undefined
         }
       >
