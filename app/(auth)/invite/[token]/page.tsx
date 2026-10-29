@@ -8,6 +8,7 @@ import {
   isTelegramInviteConfigured,
 } from '@/server/auth/index.server';
 import { createHash } from 'node:crypto';
+import { createClient } from '@supabase/supabase-js';
 import { redirect } from 'next/navigation';
 
 export const metadata = { title: 'Приглашение в семью' };
@@ -45,7 +46,27 @@ export default async function Page({
   const hash = createHash('sha256').update(token).digest('hex');
   const { data, error } = await client.rpc('inspect_telegram_invite', { handoff_hash: hash });
   if (error || !Array.isArray(data)) throw new Error('Не удалось проверить приглашение');
-  if (data.length === 0 && isTelegramInviteConfigured())
+  if (data.length === 0 && isTelegramInviteConfigured()) {
+    const service = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SECRET_KEY!,
+      {
+        auth: { persistSession: false, autoRefreshToken: false },
+      },
+    );
+    const { data: active, error: statusError } = await service.rpc('telegram_handoff_is_active', {
+      handoff_hash: hash,
+    });
+    if (statusError) throw new Error('Не удалось проверить срок приглашения');
+    if (!active)
+      return (
+        <AccessPage kind="invite">
+          <p>
+            Эта ссылка от бота уже недействительна или истекла. Откройте исходную ссылку-приглашение
+            и получите новую ссылку у бота.
+          </p>
+        </AccessPage>
+      );
     return (
       <AccessPage
         kind="invite"
@@ -64,6 +85,7 @@ export default async function Page({
         <AcceptInvitation action={confirmTelegramIdentity.bind(null, token)} confirmIdentity />
       </AccessPage>
     );
+  }
   if (
     data.length !== 1 ||
     typeof data[0]?.family_name !== 'string' ||

@@ -343,4 +343,54 @@ describe('Семейные права и приглашения в PostgreSQL', 
       ).rows,
     ).toHaveLength(0);
   });
+
+  it('сервер отличает активную ссылку бота от истёкшей и использованной', async () => {
+    await db.exec('reset role');
+    await db.exec(
+      await readFile('supabase/migrations/20261029030000_invitation_handoff_status.sql', 'utf8'),
+    );
+    await asUser(users.member);
+    await expect(
+      db.query('select public.telegram_handoff_is_active($1)', [hash('restore-handoff')]),
+    ).rejects.toThrow();
+    await db.exec('reset role; set role service_role');
+    expect(
+      (
+        await db.query<{ active: boolean }>(
+          'select public.telegram_handoff_is_active($1) as active',
+          [hash('restore-handoff')],
+        )
+      ).rows[0]!.active,
+    ).toBe(true);
+    expect(
+      (
+        await db.query<{ active: boolean }>(
+          'select public.telegram_handoff_is_active($1) as active',
+          [hash('google-handoff')],
+        )
+      ).rows[0]!.active,
+    ).toBe(false);
+    expect(
+      (
+        await db.query<{ active: boolean }>(
+          'select public.telegram_handoff_is_active($1) as active',
+          ['invalid'],
+        )
+      ).rows[0]!.active,
+    ).toBe(false);
+    await db.exec('reset role');
+    await db.query(
+      "update private.telegram_invite_handoffs set expires_at=now()-interval '1 second' where token_hash=decode($1,'hex')",
+      [hash('restore-handoff')],
+    );
+    await db.exec('set role service_role');
+    expect(
+      (
+        await db.query<{ active: boolean }>(
+          'select public.telegram_handoff_is_active($1) as active',
+          [hash('restore-handoff')],
+        )
+      ).rows[0]!.active,
+    ).toBe(false);
+  });
 });
