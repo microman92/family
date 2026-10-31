@@ -220,6 +220,14 @@ export async function signInTelegramForInvite(destination: string): Promise<Auth
   redirect(data.url);
 }
 
+export async function switchAccountForInvite(handoff: string): Promise<AuthState> {
+  if (!/^[A-Za-z0-9_-]{32}$/.test(handoff)) return { error: 'Ссылка приглашения недействительна.' };
+  const client = await createAuthClient();
+  const { error } = await client.auth.signOut({ scope: 'local' });
+  if (error) return { error: 'Не удалось завершить вход. Попробуйте ещё раз.' };
+  return signInTelegramForInvite(`/invite/${handoff}`);
+}
+
 export async function addChild(_previous: AuthState, form: FormData): Promise<AuthState> {
   const name = familyNameSchema.safeParse(form.get('name'));
   if (!name.success) return { error: 'Имя должно содержать от 1 до 100 символов.' };

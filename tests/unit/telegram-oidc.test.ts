@@ -5,6 +5,42 @@ vi.mock('server-only', () => ({}));
 import { verifyTelegramIdToken } from '@/server/auth/telegram-bind';
 
 describe('Подтверждение Telegram OIDC', () => {
+  it('принимает числовую строку Telegram ID и отклоняет некорректные значения', async () => {
+    const { privateKey, publicKey } = await generateKeyPair('RS256');
+    const keys: JWTVerifyGetKey = async () => publicKey;
+    const makeToken = async (id?: unknown, subject = 'subject') => {
+      const claims: Record<string, unknown> = { nonce: 'expected' };
+      if (id !== undefined) claims.id = id;
+      return new SignJWT(claims)
+        .setProtectedHeader({ alg: 'RS256' })
+        .setIssuer('https://oauth.telegram.org')
+        .setAudience('client')
+        .setSubject(subject)
+        .setIssuedAt()
+        .setExpirationTime('5m')
+        .sign(privateKey);
+    };
+    await expect(
+      verifyTelegramIdToken(await makeToken(), 'client', 'expected', keys),
+    ).rejects.toMatchObject({ diagnostic: 'token_id_missing' });
+    expect(await verifyTelegramIdToken(await makeToken('123'), 'client', 'expected', keys)).toEqual(
+      {
+        subject: 'subject',
+        telegramId: '123',
+      },
+    );
+    for (const id of ['0', '-123', '0123', '123abc', '9007199254740992', 1.5, {}, null]) {
+      await expect(
+        verifyTelegramIdToken(await makeToken(id), 'client', 'expected', keys),
+      ).rejects.toMatchObject({
+        diagnostic: id === null ? 'token_id_missing' : 'token_id_invalid',
+      });
+    }
+    const subject = '18446744073709551615';
+    expect(
+      await verifyTelegramIdToken(await makeToken('123', subject), 'client', 'expected', keys),
+    ).toEqual({ subject, telegramId: '123' });
+  });
   it('проверяет подпись, issuer, audience, nonce и срок; subject и Telegram ID различны', async () => {
     const { privateKey, publicKey } = await generateKeyPair('RS256');
     const keys: JWTVerifyGetKey = async () => publicKey;

@@ -1,13 +1,20 @@
 import { createHash } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse, type NextRequest } from 'next/server';
-import { createAuthClient, finishTelegramBinding } from '@/server/auth/index.server';
+import {
+  createAuthClient,
+  finishTelegramBinding,
+  TelegramBindingError,
+} from '@/server/auth/index.server';
 import { getRememberedInvite } from '@/server/auth/invite-cookie';
 
 export async function GET(request: NextRequest) {
   const origin = new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://127.0.0.1:3000').origin;
   const invite = await getRememberedInvite();
-  const failure = (reason: 'callback' | 'session' | 'verification' | 'binding') => {
+  const failure = (
+    reason:
+      'callback' | 'session' | 'verification' | 'binding' | 'account' | 'recipient' | 'subject',
+  ) => {
     console.warn('[telegram-bind] confirmation failed:', reason);
     const destination = new URL(
       !invite ? '/invite/expired' : reason === 'session' ? '/login' : invite,
@@ -43,18 +50,52 @@ export async function GET(request: NextRequest) {
     const service = createClient(url, key, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    const { data, error } = await service.rpc('bind_verified_telegram_identity', {
+    const bindingInput = {
       actor: user.id,
       verified_subject: verified.subject,
       verified_telegram_id: verified.telegramId,
       handoff_hash: createHash('sha256').update(verified.handoff).digest('hex'),
-    });
-    if (error || !data) return failure('binding');
+    };
+    const { data, error } = await service.rpc('bind_verified_telegram_identity', bindingInput);
+    if (error || !data) {
+      if (error) console.warn('[telegram-bind] binding database error:', error.code);
+      else {
+        const { data: detail } = await service.rpc('telegram_binding_diagnostics', bindingInput);
+        const safeReasons = [
+          'invalid_input',
+          'login_account_mismatch_other',
+          'login_subject_unknown',
+          'login_subject_unknown_recipient_matches',
+          'login_subject_numeric_near',
+          'handoff_missing',
+          'recipient_mismatch',
+          'handoff_expired',
+          'invitation_unavailable',
+          'account_already_bound',
+          'telegram_already_bound',
+          'other',
+        ];
+        console.warn(
+          '[telegram-bind] binding detail:',
+          safeReasons.includes(detail) ? detail : 'unavailable',
+        );
+        if (detail === 'login_account_mismatch_other') return failure('account');
+        if (detail === 'recipient_mismatch') return failure('recipient');
+        if (
+          ['login_subject_unknown_recipient_matches', 'login_subject_numeric_near'].includes(detail)
+        )
+          return failure('subject');
+      }
+      return failure('binding');
+    }
     const response = NextResponse.redirect(new URL(`/invite/${verified.handoff}`, origin));
     response.headers.set('Cache-Control', 'private, no-store');
     response.headers.set('Referrer-Policy', 'no-referrer');
     return response;
-  } catch {
+  } catch (error) {
+    if (stage === 'verification' && error instanceof TelegramBindingError) {
+      console.warn('[telegram-bind] verification detail:', error.diagnostic);
+    }
     return failure(stage);
   }
 }

@@ -19,6 +19,23 @@ describe('Связывание Telegram с приглашением', () => {
     cookieValues.clear();
   });
 
+  it('различает отсутствие cookie и отказ Telegram без записи токенов', async () => {
+    vi.stubEnv('TELEGRAM_OIDC_CLIENT_ID', 'test-client');
+    vi.stubEnv('TELEGRAM_OIDC_CLIENT_SECRET', 'test-server-secret');
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://family.example');
+    await expect(finishTelegramBinding('code', 'x'.repeat(32))).rejects.toMatchObject({
+      diagnostic: 'cookie_missing',
+    });
+    const authorization = new URL(await beginTelegramBinding('H'.repeat(32)));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(null, { status: 401 })),
+    );
+    await expect(
+      finishTelegramBinding('code', authorization.searchParams.get('state')!),
+    ).rejects.toMatchObject({ diagnostic: 'token_http_401' });
+  });
+
   it('отклоняет неверный state и проверяет PKCE, nonce и подписанный токен', async () => {
     vi.stubEnv('TELEGRAM_OIDC_CLIENT_ID', 'test-client');
     vi.stubEnv('TELEGRAM_OIDC_CLIENT_SECRET', 'test-server-secret');
@@ -36,7 +53,7 @@ describe('Связывание Telegram с приглашением', () => {
     const state = authorization.searchParams.get('state')!;
     const { privateKey, publicKey } = await generateKeyPair('RS256');
     const jwk = { ...(await exportJWK(publicKey)), kid: 'test-key', alg: 'RS256', use: 'sig' };
-    const token = await new SignJWT({ id: 22222, nonce })
+    const token = await new SignJWT({ id: '22222', nonce })
       .setProtectedHeader({ alg: 'RS256', kid: 'test-key' })
       .setIssuer('https://oauth.telegram.org')
       .setAudience('test-client')

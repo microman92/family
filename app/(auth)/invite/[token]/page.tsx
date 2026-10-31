@@ -6,6 +6,7 @@ import {
   getSupabaseConfig,
   confirmTelegramIdentity,
   isTelegramInviteConfigured,
+  switchAccountForInvite,
 } from '@/server/auth/index.server';
 import { createHash } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
@@ -70,19 +71,38 @@ export default async function Page({
     return (
       <AccessPage
         kind="invite"
+        inviteDestination={`/invite/${token}`}
         error={
           flowError === 'telegram'
-            ? reason === 'binding'
-              ? 'Не удалось связать Telegram с приглашением. Убедитесь, что вошли через тот же аккаунт, в котором открыли бота.'
-              : 'Не удалось подтвердить Telegram. Откройте приглашение и попробуйте ещё раз в том же браузере.'
+            ? reason === 'account'
+              ? 'Telegram подтверждён, но в Family открыт другой аккаунт. Смените аккаунт и выберите Telegram, в котором открыли бота.'
+              : reason === 'recipient'
+                ? 'Подтверждён другой Telegram. Выберите аккаунт, в котором получили эту ссылку от бота.'
+                : reason === 'subject'
+                  ? 'Telegram получателя подтверждён, но его идентификатор не совпал с сохранённым входом. Попробуйте войти заново через этот Telegram.'
+                  : reason === 'binding'
+                    ? 'Не удалось связать Telegram с приглашением. Убедитесь, что вошли через тот же аккаунт, в котором открыли бота.'
+                    : 'Не удалось подтвердить Telegram. Откройте приглашение и попробуйте ещё раз в том же браузере.'
             : undefined
         }
       >
+        <p>
+          Сейчас в Family:{' '}
+          {typeof user.user_metadata?.preferred_username === 'string'
+            ? `@${user.user_metadata.preferred_username}`
+            : (user.email ?? 'аккаунт без Telegram-ника')}
+          .
+        </p>
         <p>
           Подтвердите Telegram-аккаунт, в котором вы открыли приглашение. Если ссылка истекла,
           попросите новую.
         </p>
         <AcceptInvitation action={confirmTelegramIdentity.bind(null, token)} confirmIdentity />
+        <AcceptInvitation
+          action={switchAccountForInvite.bind(null, token)}
+          label="Сменить аккаунт"
+          secondary
+        />
       </AccessPage>
     );
   }

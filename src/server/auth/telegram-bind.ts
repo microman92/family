@@ -16,6 +16,16 @@ const telegramKeys = createRemoteJWKSet(
   new URL('https://oauth.telegram.org/.well-known/jwks.json'),
 );
 
+export class TelegramBindingError extends Error {
+  constructor(
+    readonly diagnostic: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'TelegramBindingError';
+  }
+}
+
 function signature(payload: string, secret: string) {
   return createHmac('sha256', secret).update(payload).digest('base64url');
 }
@@ -60,7 +70,7 @@ export async function finishTelegramBinding(code: string, receivedState: string)
   const secret = process.env.TELEGRAM_OIDC_CLIENT_SECRET;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
   if (!clientId || !secret || !appUrl || !code || code.length > 4096)
-    throw new Error('Не удалось подтвердить Telegram');
+    throw new TelegramBindingError('configuration', 'Не удалось подтвердить Telegram');
   const store = await cookies();
   const cookie = store.get(cookieName)?.value;
   store.set(cookieName, '', {
@@ -78,11 +88,14 @@ export async function finishTelegramBinding(code: string, receivedState: string)
     !/^[A-Za-z0-9_-]+$/.test(payload) ||
     !/^[A-Za-z0-9_-]+$/.test(mac)
   )
-    throw new Error('Ссылка подтверждения недействительна');
+    throw new TelegramBindingError(
+      cookie ? 'cookie_format' : 'cookie_missing',
+      'Ссылка подтверждения недействительна',
+    );
   const expectedMac = Buffer.from(signature(payload, secret));
   const actualMac = Buffer.from(mac);
   if (expectedMac.length !== actualMac.length || !timingSafeEqual(expectedMac, actualMac))
-    throw new Error('Ссылка подтверждения недействительна');
+    throw new TelegramBindingError('cookie_signature', 'Ссылка подтверждения недействительна');
   const parsed = claimsSchema.safeParse(
     JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')),
   );
@@ -93,7 +106,7 @@ export async function finishTelegramBinding(code: string, receivedState: string)
     parsed.data.issuedAt > Date.now() + 30_000 ||
     Date.now() - parsed.data.issuedAt > 300_000
   )
-    throw new Error('Ссылка подтверждения истекла');
+    throw new TelegramBindingError('state_or_expiry', 'Ссылка подтверждения истекла');
   const body = new URLSearchParams({
     grant_type: 'authorization_code',
     code,
@@ -101,22 +114,30 @@ export async function finishTelegramBinding(code: string, receivedState: string)
     client_id: clientId,
     code_verifier: parsed.data.verifier,
   });
-  const response = await fetch('https://oauth.telegram.org/token', {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${Buffer.from(`${clientId}:${secret}`).toString('base64')}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body,
-    cache: 'no-store',
-    signal: AbortSignal.timeout(10_000),
-  });
-  if (!response.ok) throw new Error('Telegram не подтвердил вход');
+  let response: Response;
+  try {
+    response = await fetch('https://oauth.telegram.org/token', {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${clientId}:${secret}`).toString('base64')}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body,
+      cache: 'no-store',
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch {
+    throw new TelegramBindingError('token_network', 'Telegram не подтвердил вход');
+  }
+  if (!response.ok)
+    throw new TelegramBindingError(`token_http_${response.status}`, 'Telegram не подтвердил вход');
   const tokenResponse = z
     .object({ id_token: z.string().min(1).max(16_384) })
-    .parse(await response.json());
+    .safeParse(await response.json());
+  if (!tokenResponse.success)
+    throw new TelegramBindingError('token_response', 'Telegram не подтвердил вход');
   const verified = await verifyTelegramIdToken(
-    tokenResponse.id_token,
+    tokenResponse.data.id_token,
     clientId,
     parsed.data.nonce,
     telegramKeys,
@@ -130,21 +151,33 @@ export async function verifyTelegramIdToken(
   nonce: string,
   keys: JWTVerifyGetKey,
 ) {
-  const { payload: verified } = await jwtVerify(token, keys, {
-    issuer: 'https://oauth.telegram.org',
-    audience: clientId,
-    algorithms: ['RS256'],
-    requiredClaims: ['iss', 'aud', 'sub', 'exp', 'iat'],
-    maxTokenAge: '5m',
-  });
-  if (
-    verified.nonce !== nonce ||
-    typeof verified.sub !== 'string' ||
-    verified.sub.length > 255 ||
-    typeof verified.id !== 'number' ||
-    !Number.isSafeInteger(verified.id) ||
-    verified.id <= 0
-  )
-    throw new Error('Telegram не подтвердил аккаунт');
-  return { subject: verified.sub, telegramId: String(verified.id) };
+  let verified;
+  try {
+    ({ payload: verified } = await jwtVerify(token, keys, {
+      issuer: 'https://oauth.telegram.org',
+      audience: clientId,
+      algorithms: ['RS256'],
+      requiredClaims: ['iss', 'aud', 'sub', 'exp', 'iat'],
+      maxTokenAge: '5m',
+    }));
+  } catch {
+    throw new TelegramBindingError('token_signature_or_claims', 'Telegram не подтвердил аккаунт');
+  }
+  if (verified.nonce !== nonce)
+    throw new TelegramBindingError('token_nonce', 'Telegram не подтвердил аккаунт');
+  if (typeof verified.sub !== 'string' || verified.sub.length === 0 || verified.sub.length > 255)
+    throw new TelegramBindingError('token_subject_invalid', 'Telegram не подтвердил аккаунт');
+  if (verified.id === undefined || verified.id === null)
+    throw new TelegramBindingError('token_id_missing', 'Telegram не подтвердил аккаунт');
+  const telegramId =
+    typeof verified.id === 'number' && Number.isSafeInteger(verified.id) && verified.id > 0
+      ? String(verified.id)
+      : typeof verified.id === 'string' &&
+          /^[1-9][0-9]{0,15}$/.test(verified.id) &&
+          BigInt(verified.id) <= BigInt(Number.MAX_SAFE_INTEGER)
+        ? verified.id
+        : null;
+  if (!telegramId)
+    throw new TelegramBindingError('token_id_invalid', 'Telegram не подтвердил аккаунт');
+  return { subject: verified.sub, telegramId };
 }

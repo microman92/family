@@ -9,6 +9,7 @@ export {
   acceptInvite,
   authenticateForInvite,
   signInTelegramForInvite,
+  switchAccountForInvite,
   addChild,
   removeMember,
   changeMemberRole,
@@ -16,4 +17,4 @@ export {
 } from './actions';
 export { getSupabaseConfig, isTelegramInviteConfigured } from './config';
 export { createAuthClient } from './client';
-export { finishTelegramBinding } from './telegram-bind';
+export { finishTelegramBinding, TelegramBindingError } from './telegram-bind';

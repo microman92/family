@@ -393,4 +393,75 @@ describe('Семейные права и приглашения в PostgreSQL', 
       ).rows[0]!.active,
     ).toBe(false);
   });
+
+  it('диагностика привязки доступна только серверу и не раскрывает идентификаторы', async () => {
+    await db.exec('reset role');
+    await db.exec(
+      await readFile('supabase/migrations/20261029040000_telegram_binding_diagnostics.sql', 'utf8'),
+    );
+    await asUser(users.member);
+    await db.query('select public.create_family_invite($1,$2)', [
+      hash('diagnostic-invite'),
+      'member',
+    ]);
+    await expect(
+      db.query('select public.telegram_binding_diagnostics($1,$2,$3,$4)', [
+        users.member,
+        'subject-member',
+        '22222',
+        hash('diagnostic-handoff'),
+      ]),
+    ).rejects.toThrow();
+    await db.exec('reset role; set role service_role');
+    await db.query('select public.prepare_telegram_invite($1,$2,$3,$4,$5)', [
+      hash('diagnostic-invite'),
+      hash('diagnostic-handoff'),
+      '22222',
+      '22222',
+      127,
+    ]);
+    const check = async (subject: string, telegram: string) =>
+      (
+        await db.query<{ reason: string }>(
+          'select public.telegram_binding_diagnostics($1,$2,$3,$4) as reason',
+          [users.member, subject, telegram, hash('diagnostic-handoff')],
+        )
+      ).rows[0]!.reason;
+    expect(await check('subject-outsider', '22222')).toBe('login_account_mismatch');
+    expect(await check('subject-member', '99999')).toBe('recipient_mismatch');
+    expect(await check('subject-member', '22222')).toBe('other');
+    await db.exec('reset role');
+    await db.exec(
+      await readFile(
+        'supabase/migrations/20261029050000_telegram_identity_diagnostics.sql',
+        'utf8',
+      ),
+    );
+    await db.exec('set role service_role');
+    expect(await check('subject-outsider', '22222')).toBe('login_account_mismatch_other');
+    expect(await check('unknown-subject', '22222')).toBe('login_subject_unknown');
+    expect(await check('subject-member', '22222')).toBe('other');
+    await db.exec('reset role');
+    await db.exec(
+      await readFile(
+        'supabase/migrations/20261031000000_telegram_recipient_diagnostics.sql',
+        'utf8',
+      ),
+    );
+    await db.exec('set role service_role');
+    expect(await check('unknown-subject', '99999')).toBe('recipient_mismatch');
+    expect(await check('unknown-subject', '22222')).toBe('login_subject_unknown_recipient_matches');
+    expect(await check('subject-outsider', '22222')).toBe('login_account_mismatch_other');
+    await db.exec('reset role');
+    await db.query(
+      "update auth.identities set provider_id=$1 where provider_id='subject-outsider'",
+      ['9223372036854775807'],
+    );
+    await db.exec('set role service_role');
+    expect(await check('9223372036854775808', '22222')).toBe('login_subject_numeric_near');
+    expect(await check('9223372036854875808', '22222')).toBe(
+      'login_subject_unknown_recipient_matches',
+    );
+    expect(await check('subject-member', '22222')).toBe('other');
+  });
 });

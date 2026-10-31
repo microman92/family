@@ -54,9 +54,13 @@ export function InvitationForm({
 export function AcceptInvitation({
   action,
   confirmIdentity = false,
+  label,
+  secondary = false,
 }: {
   action: (state: AuthState, data: FormData) => Promise<AuthState>;
   confirmIdentity?: boolean;
+  label?: string;
+  secondary?: boolean;
 }) {
   const [state, submit, pending] = useActionState(action, {});
   return (
@@ -66,8 +70,10 @@ export function AcceptInvitation({
           {state.error}
         </p>
       )}
-      <Button type="submit" disabled={pending}>
-        {pending ? 'Подождите…' : confirmIdentity ? 'Подтвердить Telegram' : 'Принять приглашение'}
+      <Button type="submit" disabled={pending} variant={secondary ? 'outline' : 'default'}>
+        {pending
+          ? 'Подождите…'
+          : (label ?? (confirmIdentity ? 'Подтвердить Telegram' : 'Принять приглашение'))}
       </Button>
     </form>
   );

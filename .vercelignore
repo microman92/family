@@ -1,0 +1,13 @@
+.env*
+.git/
+.vercel/
+.agents/
+supabase/.temp/
+node_modules/
+.next/
+coverage/
+playwright-report/
+test-results/
+.npm-cache/
+*.log
+*.tsbuildinfo
