@@ -1,0 +1,53 @@
+import 'server-only';
+import { createAuthClient } from '@/server/auth/client';
+import {
+  hasFamilyCapability,
+  type FamilyCapability,
+  type FamilyRole,
+} from '@/server/modules/access/domain/capability';
+import type { Scope } from '@/server/modules/access/domain/scope';
+
+export class AccessDeniedError extends Error {
+  constructor() {
+    super('Access denied');
+    this.name = 'AccessDeniedError';
+  }
+}
+
+/** Use the Auth server, never user IDs supplied by a request. */
+export async function getCurrentUser() {
+  const client = await createAuthClient();
+  const { data, error } = await client.auth.getUser();
+  if (error || !data.user) throw new AccessDeniedError();
+  return { client, user: data.user };
+}
+
+export async function requireFamilyMember(familyId: string) {
+  const { client, user } = await getCurrentUser();
+  const { data, error } = await client
+    .from('family_members')
+    .select('role')
+    .eq('family_id', familyId)
+    .eq('user_id', user.id)
+    .eq('status', 'active')
+    .maybeSingle();
+  if (error || !data || !['admin', 'member', 'child'].includes(data.role)) {
+    throw new AccessDeniedError();
+  }
+  return { client, user, role: data.role as FamilyRole };
+}
+
+export async function requireCapability(familyId: string, capability: FamilyCapability) {
+  const membership = await requireFamilyMember(familyId);
+  if (!hasFamilyCapability(membership.role, capability)) throw new AccessDeniedError();
+  return membership;
+}
+
+/** Checks ownership/membership only. Family operations must also check their capability. */
+export async function assertRecordScope(scope: Scope) {
+  if (scope.visibility === 'family') return requireFamilyMember(scope.familyId);
+  if (scope.visibility !== 'private') throw new AccessDeniedError();
+  const actor = await getCurrentUser();
+  if (scope.ownerUserId !== actor.user.id) throw new AccessDeniedError();
+  return actor;
+}

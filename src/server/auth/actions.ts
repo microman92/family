@@ -105,8 +105,9 @@ export async function createFamily(_previous: AuthState, form: FormData): Promis
 
 export async function signOut() {
   const client = await createAuthClient();
-  const { error } = await client.auth.signOut();
+  const { error } = await client.auth.signOut({ scope: 'local' });
   if (error) throw new Error('Не удалось завершить сеанс');
+  await clearRememberedInvite();
   redirect('/login');
 }
 

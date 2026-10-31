@@ -36,7 +36,7 @@ vi.mock('@/server/auth/client', () => ({
 vi.mock('@/server/auth/config', () => ({
   getSupabaseConfig: () => ({ url: 'https://supabase.example', key: 'key' }),
 }));
-import { signInTelegramForInvite, switchAccountForInvite } from '@/server/auth/actions';
+import { signInTelegramForInvite, switchAccountForInvite, signOut } from '@/server/auth/actions';
 
 describe('Telegram-вход по семейному приглашению', () => {
   afterEach(() => {
@@ -61,6 +61,13 @@ describe('Telegram-вход по семейному приглашению', () 
     expect(await signInTelegramForInvite('https://example.com')).toMatchObject({
       error: expect.any(String),
     });
+    expect(session.cookie).toBeNull();
+  });
+  it('выход очищает приглашение и завершает только текущий сеанс', async () => {
+    session.cookie = '/invite/' + 'a'.repeat(32);
+    session.signOut.mockResolvedValue({ error: null });
+    await expect(signOut()).rejects.toThrow('redirect:/login');
+    expect(session.signOut).toHaveBeenCalledWith({ scope: 'local' });
     expect(session.cookie).toBeNull();
   });
   it('при смене аккаунта завершает только текущий сеанс и сохраняет приглашение', async () => {

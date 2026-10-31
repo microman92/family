@@ -1,4 +1,4 @@
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
@@ -46,7 +46,18 @@ export async function POST(request: NextRequest) {
   if (message.from.id !== message.chat.id) return new NextResponse(null, { status: 200 });
   const invite = /^\/start(?:@[A-Za-z0-9_]+)?\s+invite_([A-Za-z0-9_-]{32})$/.exec(message.text);
   if (!invite?.[1]) return new NextResponse(null, { status: 200 });
-  const handoff = randomBytes(24).toString('base64url');
+  // A Telegram retry must preserve the link already delivered for this update.
+  const handoff = createHmac('sha256', token)
+    .update(
+      JSON.stringify([
+        'family-invite-handoff-v1',
+        update.data.update_id,
+        message.from.id,
+        invite[1],
+      ]),
+    )
+    .digest('base64url')
+    .slice(0, 32);
   const hash = (value: string) => createHash('sha256').update(value).digest('hex');
   const client = createClient(supabaseUrl, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },

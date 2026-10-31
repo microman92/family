@@ -53,6 +53,12 @@ describe('Семейные права и приглашения в PostgreSQL', 
     );
     await db.exec(migration);
     await db.exec(await readFile('supabase/migrations/20261029000000_profile_avatars.sql', 'utf8'));
+    await db.exec(
+      await readFile('supabase/migrations/20261101000000_limit_child_roster.sql', 'utf8'),
+    );
+    await db.exec(
+      await readFile('supabase/migrations/20261101010000_member_profile_family_link.sql', 'utf8'),
+    );
     await db.query(
       'insert into auth.users (id, email, raw_user_meta_data) values ($1, \'admin@example.com\', \'{"name":"Администратор"}\')',
       [users.admin],

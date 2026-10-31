@@ -10,6 +10,8 @@ export default defineConfig([
   { rules: { '@typescript-eslint/no-explicit-any': 'error' } },
   globalIgnores([
     '.next/**',
+    '.next-e2e/**',
+    '.next-e2e-auth/**',
     'next-env.d.ts',
     'coverage/**',
     'playwright-report/**',

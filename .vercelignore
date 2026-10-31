@@ -5,6 +5,8 @@
 supabase/.temp/
 node_modules/
 .next/
+.next-e2e/
+.next-e2e-auth/
 coverage/
 playwright-report/
 test-results/

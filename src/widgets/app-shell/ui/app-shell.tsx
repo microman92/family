@@ -3,8 +3,9 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { ChevronDown, Ellipsis, Leaf, LogIn, PanelLeftClose } from 'lucide-react';
+import { ChevronDown, Ellipsis, Leaf, LogIn, LogOut, PanelLeftClose } from 'lucide-react';
 import { useState } from 'react';
+import { useFormStatus } from 'react-dom';
 import { navigation } from '@/shared/config';
 import {
   Badge,
@@ -16,6 +17,18 @@ import {
   Icon,
 } from '@/shared/ui';
 import styles from './app-shell.module.scss';
+
+function SignOutItem() {
+  const { pending } = useFormStatus();
+  return (
+    <DropdownMenuItem asChild onSelect={(event) => event.preventDefault()} disabled={pending}>
+      <button type="submit" disabled={pending} aria-busy={pending}>
+        <LogOut />
+        {pending ? 'Выходим…' : 'Выйти'}
+      </button>
+    </DropdownMenuItem>
+  );
+}
 
 export function AppShell({
   children,
@@ -152,12 +165,7 @@ export function AppShell({
                 )}
                 {signOut && (
                   <form action={signOut}>
-                    <DropdownMenuItem asChild>
-                      <button type="submit">
-                        <LogIn />
-                        Выйти
-                      </button>
-                    </DropdownMenuItem>
+                    <SignOutItem />
                   </form>
                 )}
               </DropdownMenuContent>
