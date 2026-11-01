@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({
   user: { id: 'authenticated-user' } as { id: string } | null,
-  member: null as { role: string } | null,
+  member: null as { role: string; family_id?: string } | null,
   filters: [] as [string, string][],
 }));
 vi.mock('server-only', () => ({}));
@@ -22,7 +22,12 @@ vi.mock('@/server/auth/client', () => ({
     },
   }),
 }));
-import { assertRecordScope, getCurrentUser, requireCapability } from '@/server/access/index.server';
+import {
+  assertRecordScope,
+  getCurrentUser,
+  requireCapability,
+  requireCurrentFamilyCapability,
+} from '@/server/access/index.server';
 import type { Scope } from '@/server/modules/access/domain/scope';
 
 beforeEach(() => {
@@ -69,5 +74,21 @@ describe('Серверные проверки доступа', () => {
         ownerUserId: 'authenticated-user',
       } as unknown as Scope),
     ).rejects.toThrow('Access denied');
+  });
+  it('получает текущую семью из базы и запрещает администрирование участнику или ребёнку', async () => {
+    state.member = { role: 'member', family_id: 'family-a' };
+    await expect(requireCurrentFamilyCapability('family.manage')).rejects.toThrow('Access denied');
+    expect(state.filters).toEqual([
+      ['user_id', 'authenticated-user'],
+      ['status', 'active'],
+    ]);
+    state.member = { role: 'child', family_id: 'family-a' };
+    await expect(requireCurrentFamilyCapability('family.manage')).rejects.toThrow('Access denied');
+    state.member = { role: 'admin', family_id: 'family-a' };
+    await expect(requireCurrentFamilyCapability('family.manage')).resolves.toMatchObject({
+      familyId: 'family-a',
+    });
+    state.member = { role: 'admin' };
+    await expect(requireCurrentFamilyCapability('family.manage')).rejects.toThrow('Access denied');
   });
 });

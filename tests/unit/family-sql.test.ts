@@ -59,6 +59,12 @@ describe('Семейные права и приглашения в PostgreSQL', 
     await db.exec(
       await readFile('supabase/migrations/20261101010000_member_profile_family_link.sql', 'utf8'),
     );
+    await db.exec(
+      await readFile('supabase/migrations/20261101020000_scope_security_helpers.sql', 'utf8'),
+    );
+    await db.exec(
+      await readFile('supabase/migrations/20261101030000_service_scope_access.sql', 'utf8'),
+    );
     await db.query(
       'insert into auth.users (id, email, raw_user_meta_data) values ($1, \'admin@example.com\', \'{"name":"Администратор"}\')',
       [users.admin],
@@ -140,6 +146,46 @@ describe('Семейные права и приглашения в PostgreSQL', 
       (await db.query('select user_id from public.profiles where user_id = $1', [users.admin]))
         .rows,
     ).toHaveLength(0);
+  });
+
+  it('проверяет scope и права через авторизованную сессию без доверия к owner из запроса', async () => {
+    await asUser(users.admin);
+    const query = `select private.can_access_scope('family',$1,null) as family,
+      private.can_access_scope('private',null,$2) as own,
+      private.can_access_scope('private',null,$3) as foreign_private,
+      private.scope_is_valid('family',$1,$2) as malformed,
+      private.has_family_capability($1,'finance.write') as finance,
+      private.has_family_capability($1,'unknown') as unknown`;
+    const admin = await db.query(query, [familyId, users.admin, users.member]);
+    expect(admin.rows[0]).toEqual({
+      family: true,
+      own: true,
+      foreign_private: false,
+      malformed: false,
+      finance: true,
+      unknown: false,
+    });
+    await asUser(users.outsider);
+    const other = await db.query(query, [familyId, users.outsider, users.admin]);
+    expect(other.rows[0]).toEqual({
+      family: false,
+      own: true,
+      foreign_private: false,
+      malformed: false,
+      finance: false,
+      unknown: false,
+    });
+    await db.exec('reset role; set role anon');
+    await expect(
+      db.query("select private.scope_is_valid('private',null,$1)", [users.admin]),
+    ).rejects.toThrow();
+    await db.exec('reset role; set role service_role');
+    const service = await db.query<{ ok: boolean }>(
+      "select private.scope_is_valid('private',null,$1) as ok",
+      [users.admin],
+    );
+    expect(service.rows[0]!.ok).toBe(true);
+    await expect(db.query('select * from private.telegram_identity_bindings')).rejects.toThrow();
   });
 
   it('проверяет Telegram-аккаунт, одноразовость и отказ чужому пользователю', async () => {

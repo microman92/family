@@ -1418,6 +1418,7 @@ interface LedgerPostingPort {
 <p><strong>Версия:</strong> 2.0 · <strong>Дата:</strong> 26.10.2026 · <strong>Цель:</strong> весь функционал <a href="PRD.md">PRD.md</a> и <a href="SPEC.md">SPEC.md</a> в целевом V1, <strong>без ИИ</strong>.
 Назначение: самостоятельная разработка или последовательная работа AI-агента. Каждая фаза содержит завершённый проверяемый результат; ни один пункт не считается готовым без работающего кода и теста.</p>
 </blockquote>
+<p><strong>Статус на 01.11.2026:</strong> фаза 1 завершена; фаза 2 частично проверена, её Gate остаётся открытым; фаза 3 начата с разрешения пользователя до закрытия Gate 2; фазы 4–19 не завершены. Проверенные задачи внутри незавершённых фаз отмечены отдельно.</p>
 <h2>0. Общие правила исполнителя</h2>
 <ol>
 <li>Сначала прочитать <strong>PRD → SPEC → TASKS</strong> полностью; при конфликте: продуктовые требования — PRD, технические инварианты — SPEC, порядок — TASKS.</li>
@@ -1430,6 +1431,7 @@ interface LedgerPostingPort {
 <li>В начале каждой фазы записать цель; в конце обновить <code>TASKS.md</code>, <code>CHANGELOG.md</code> и краткий отчёт: файлы/тесты/решения/риски.</li>
 <li>Не удалять проведённую финансовую историю. Исправления через reverse/correction.</li>
 <li><strong>НИЧЕГО ИИ в V1:</strong> никакие LLM SDK, OCR/AI, модели, prompt endpoints и ключи не устанавливать.</li>
+<li>После каждой завершённой задачи обновлять этот файл: отмечать проверенные пункты и записывать оставшиеся ограничения; синхронизировать <code>Documentation.html</code>.</li>
 </ol>
 <h2>0.1 Пример отчёта об очередной фазе</h2>
 <pre><code class="language-text">Фаза: N
@@ -1484,13 +1486,13 @@ Gate: PASS/FAIL
 <ul>
 <li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/><strong>T-012</strong> Развернуть локальный Supabase и раздельные dev/staging окружения.</li>
 <li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/><strong>T-013</strong> Настроить SSR cookie auth через <code>@supabase/ssr</code>, browser/server clients и Telegram custom OIDC provider; проверить реальную Supabase session/RLS без обязательного email.</li>
-<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/><strong>T-014</strong> Добавить миграции <code>profiles</code>, <code>families</code>, <code>family_members</code>, <code>member_profiles</code>, <code>family_invites</code>.</li>
+<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" checked disabled/><strong>T-014</strong> Добавить миграции <code>profiles</code>, <code>families</code>, <code>family_members</code>, <code>member_profiles</code>, <code>family_invites</code>.</li>
 <li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/><strong>T-015</strong> Реализовать вход/регистрацию через Telegram, logout и states формы; email/password и reset password оставить дополнительным способом. Проверить state/PKCE, nonce, неверные/просроченные ID tokens и account linking.</li>
-<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/><strong>T-016</strong> Сделать onboarding «создать семью» или «принять приглашение».</li>
-<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/><strong>T-017</strong> Реализовать атомарное создание семьи и первого admin.</li>
+<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" checked disabled/><strong>T-016</strong> Сделать onboarding «создать семью» или «принять приглашение».</li>
+<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" checked disabled/><strong>T-017</strong> Реализовать атомарное создание семьи и первого admin.</li>
 <li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/><strong>T-018</strong> Создавать инвайт с hash, TTL, отзывом и одноразовостью; выдавать ссылку на бота и QR с тем же кодом. Реализовать проверенный webhook и одноразовый handoff без расходования инвайта при сканировании.</li>
 <li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/><strong>T-019</strong> Реализовать подтверждение и атомарный приём приглашения после Telegram-входа, сверку Telegram ID с получателем handoff и проверку одно-семейного членства; E2E для ссылки/QR, другого аккаунта, отзыва, истечения и повторного приёма.</li>
-<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/><strong>T-020</strong> Сделать страницу участников, приглашений и управления статусами.</li>
+<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" checked disabled/><strong>T-020</strong> Сделать страницу участников, приглашений и управления статусами.</li>
 <li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/><strong>T-021</strong> Добавить ребёнка как исполнителя без логина и как отдельный аутентифицируемый профиль.</li>
 <li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/><strong>T-022</strong> Проверить смену/выход участника, защиту последнего администратора.</li>
 </ul>
@@ -1500,26 +1502,26 @@ Gate: PASS/FAIL
 <li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/>Рабочее состояние проекта сохранено: миграции, исходники, README/ADR актуальны.</li>
 </ul>
 <p>Прогресс 01.11.2026: в облачной и локальной Supabase проверены создание семьи, роли, отказ истёкшего и отозванного приглашения, одноразовость, исключение участника и защита последнего администратора; тестовые данные откатываются транзакцией. Второй пользователь реально вступил в семью. Регистрация и восстановление пароля проверены в локальной Supabase с тестовой почтой. Не завершены отдельный staging, доставка email через рабочий почтовый сервис и полная браузерная приёмка сценариев приглашения. Подробности — <code>docs/phase-2-report.md</code>.</p>
-<p>По решению пользователя от 01.11.2026 staging отложен, работу над фазой 3 разрешено начать до полного закрытия Gate 2. Непроверенные пункты фазы 2 остаются открытыми.</p>
+<p>По решению пользователя от 01.11.2026 staging отложен, работу над фазой 3 разрешено начать до полного закрытия Gate 2. Непроверенные пункты фазы 2 остаются открытыми. Обоснование — <a href="docs/adr/002-phase-three-before-gate-two.md">ADR</a>.</p>
 <hr />
 <h2>Фаза 3 — Scope, RBAC и RLS (обязательный security gate)</h2>
 <p><strong>Зависимости:</strong> 2.<br />
 <strong>Результат:</strong> Проверяемая серверная изоляция family/private для всех пользовательских данных.<br />
 <strong>Gate:</strong> Реальные SQL RLS тесты показывают отсутствие межсемейного и чужого private доступа.</p>
-<p>Прогресс 01.11.2026: добавлены доменная модель scope, начальная матрица прав и серверные проверки сессии/роли; проверена изоляция двух семей и профилей, ограничен список участников для роли child, запрещена связь профиля с участником другой семьи. Семейные/личные таблицы будущих модулей и полная интеграция проверок ещё не выполнены. Подробности — <code>docs/phase-3-report.md</code>.</p>
+<p>Прогресс 01.11.2026: добавлены доменная модель и SQL-функции scope, матрица прав и серверные проверки сессии/роли; административные действия подключены к проверке роли. На временной таблице с RLS в локальной и облачной базе проверены CRUD, изоляция двух семей и владельцев, запрет смены scope и отзыв доступа. Проверены RLS и гранты всех текущих пользовательских таблиц и приватность аватаров через локальный Storage API. Запуск SQL-проверок добавлен в CI, но сам job на GitHub ещё не проверен. Реальные семейные/личные таблицы будущих модулей и полная интеграция проверок ещё не выполнены. Подробности — <code>docs/phase-3-report.md</code>.</p>
 <h3>Задачи</h3>
 <ul>
 <li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/><strong>T-023</strong> Реализовать тип <code>Scope</code> в domain и SQL CHECK для family/private записей.</li>
 <li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/><strong>T-024</strong> Создать <code>getCurrentUser</code>, <code>requireFamilyMember</code>, <code>requireCapability</code>, <code>assertRecordScope</code>.</li>
-<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/><strong>T-025</strong> Создать отдельную безопасную private SQL-функцию membership для RLS, без рекурсивных policy.</li>
-<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/><strong>T-026</strong> Включить RLS и правильные grants на все текущие user tables.</li>
+<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" checked disabled/><strong>T-025</strong> Создать отдельную безопасную private SQL-функцию membership для RLS, без рекурсивных policy.</li>
+<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" checked disabled/><strong>T-026</strong> Включить RLS и правильные grants на все текущие user tables.</li>
 <li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/><strong>T-027</strong> Написать RLS SELECT/INSERT/UPDATE/DELETE политики и запрет смены scope/owner.</li>
 <li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/><strong>T-028</strong> Настроить auth guard для App Router и всех mutation endpoints/Server Actions.</li>
 <li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/><strong>T-029</strong> Ввести матрицу <code>admin/member/child</code> и правила доступа к финансам.</li>
 <li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/><strong>T-030</strong> Запретить прямые связи private ↔ family и чужие <code>assigned_to</code>/attachments.</li>
 <li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/><strong>T-031</strong> Создать SQL security tests: две семьи, private двух членов, прямые UUID, child, removed.</li>
 <li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/><strong>T-032</strong> Закрепить правила RLS/permissions в тестовых фабриках и CI.</li>
-<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/><strong>T-033</strong> Сделать исключение члена семьи и немедленный отзыв доступа.</li>
+<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" checked disabled/><strong>T-033</strong> Сделать исключение члена семьи и немедленный отзыв доступа.</li>
 </ul>
 <p><strong>Проверка перед переходом:</strong></p>
 <ul>

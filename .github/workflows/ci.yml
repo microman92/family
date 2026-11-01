@@ -26,3 +26,16 @@ jobs:
         with:
           name: playwright-report
           path: playwright-report/
+
+  security-db:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Start isolated Supabase database
+        run: npx --yes supabase@2.122.0 start --exclude gotrue,realtime,storage-api,imgproxy,kong,mailpit,postgrest,postgres-meta,studio,edge-runtime,logflare,vector,supavisor --agent=no > /dev/null
+      - name: Check RLS and family roles
+        run: npm run test:db:local

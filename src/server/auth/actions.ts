@@ -9,6 +9,7 @@ import QRCode from 'qrcode';
 import { safeAuthDestination, type InviteState } from '@/shared/lib/auth';
 import { beginTelegramBinding } from './telegram-bind';
 import { rememberInvite, clearRememberedInvite } from './invite-cookie';
+import { AccessDeniedError, requireCurrentFamilyCapability } from '@/server/access/index.server';
 
 function appUrl() {
   return new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://127.0.0.1:3000').origin;
@@ -117,12 +118,14 @@ export async function createInvite(_previous: InviteState, form: FormData): Prom
     return { error: 'Приглашения через Telegram пока не настроены.' };
   const role = form.get('role');
   if (role !== 'member' && role !== 'child') return { error: 'Выберите роль участника.' };
-  const client = await createAuthClient();
-  const {
-    data: { user },
-    error: userError,
-  } = await client.auth.getUser();
-  if (userError || !user) return { error: 'Войдите в аккаунт и попробуйте снова.' };
+  let client;
+  try {
+    ({ client } = await requireCurrentFamilyCapability('family.manage'));
+  } catch (error) {
+    if (error instanceof AccessDeniedError)
+      return { error: 'Для приглашения нужны права администратора.' };
+    throw error;
+  }
   const token = randomBytes(24).toString('base64url');
   const hash = createHash('sha256').update(token).digest('hex');
   const url = `https://t.me/${username}?start=invite_${token}`;
@@ -141,12 +144,7 @@ export async function revokeInvite(form: FormData) {
   const id = form.get('id');
   if (typeof id !== 'string' || !/^[0-9a-f-]{36}$/i.test(id))
     throw new Error('Некорректное приглашение');
-  const client = await createAuthClient();
-  const {
-    data: { user },
-    error: userError,
-  } = await client.auth.getUser();
-  if (userError || !user) redirect('/login');
+  const { client } = await requireCurrentFamilyCapability('family.manage');
   const { error } = await client.rpc('revoke_family_invite', { invite_id: id });
   if (error) throw new Error('Не удалось отозвать приглашение');
   const { revalidatePath } = await import('next/cache');
@@ -232,12 +230,14 @@ export async function switchAccountForInvite(handoff: string): Promise<AuthState
 export async function addChild(_previous: AuthState, form: FormData): Promise<AuthState> {
   const name = familyNameSchema.safeParse(form.get('name'));
   if (!name.success) return { error: 'Имя должно содержать от 1 до 100 символов.' };
-  const client = await createAuthClient();
-  const {
-    data: { user },
-    error: userError,
-  } = await client.auth.getUser();
-  if (userError || !user) return { error: 'Войдите в аккаунт и попробуйте снова.' };
+  let client;
+  try {
+    ({ client } = await requireCurrentFamilyCapability('family.manage'));
+  } catch (error) {
+    if (error instanceof AccessDeniedError)
+      return { error: 'Для добавления профиля нужны права администратора.' };
+    throw error;
+  }
   const { error } = await client.rpc('add_child_profile', { profile_name: name.data });
   if (error) return { error: 'Не удалось добавить профиль. Проверьте права администратора.' };
   const { revalidatePath } = await import('next/cache');
@@ -277,12 +277,14 @@ export async function changeMemberRole(
     (role !== 'admin' && role !== 'member' && role !== 'child')
   )
     return { error: 'Проверьте участника и роль.' };
-  const client = await createAuthClient();
-  const {
-    data: { user },
-    error: userError,
-  } = await client.auth.getUser();
-  if (userError || !user) return { error: 'Войдите в аккаунт и попробуйте снова.' };
+  let client;
+  try {
+    ({ client } = await requireCurrentFamilyCapability('family.manage'));
+  } catch (error) {
+    if (error instanceof AccessDeniedError)
+      return { error: 'Для изменения роли нужны права администратора.' };
+    throw error;
+  }
   const { error } = await client.rpc('change_family_member_role', {
     target_member: memberId,
     new_role: role,

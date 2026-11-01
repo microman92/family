@@ -78,6 +78,10 @@ try {
   await page.getByLabel('Название семьи').fill('Временная проверка');
   await page.getByRole('button', { name: 'Создать семью' }).click();
   await page.waitForURL('**/dashboard');
+  await page.goto(`${origin}/family`);
+  await page.getByLabel('Имя ребёнка').fill('Временный профиль');
+  await page.getByRole('button', { name: 'Добавить профиль' }).click();
+  await page.getByRole('status').filter({ hasText: 'Профиль добавлен' }).waitFor();
   async function logout() {
     await page.getByRole('button', { name: 'Меню пользователя' }).click();
     await page.getByRole('menuitem', { name: 'Выйти' }).click();
@@ -120,7 +124,7 @@ try {
   await page.getByRole('button', { name: 'Войти по почте' }).click();
   await page.waitForURL('**/dashboard');
   console.log(
-    'PASS: browser signup, family creation, logout, login, recovery email and password reset',
+    'PASS: browser signup, family creation, admin action, logout, login, recovery and password reset',
   );
 } finally {
   try {

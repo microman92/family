@@ -43,6 +43,27 @@ export async function requireCapability(familyId: string, capability: FamilyCapa
   return membership;
 }
 
+/** Resolves the active family from the verified session, not from a form or URL. */
+export async function requireCurrentFamilyCapability(capability: FamilyCapability) {
+  const { client, user } = await getCurrentUser();
+  const { data, error } = await client
+    .from('family_members')
+    .select('family_id,role')
+    .eq('user_id', user.id)
+    .eq('status', 'active')
+    .maybeSingle();
+  if (
+    error ||
+    !data ||
+    typeof data.family_id !== 'string' ||
+    !['admin', 'member', 'child'].includes(data.role) ||
+    !hasFamilyCapability(data.role as FamilyRole, capability)
+  ) {
+    throw new AccessDeniedError();
+  }
+  return { client, user, familyId: data.family_id, role: data.role as FamilyRole };
+}
+
 /** Checks ownership/membership only. Family operations must also check their capability. */
 export async function assertRecordScope(scope: Scope) {
   if (scope.visibility === 'family') return requireFamilyMember(scope.familyId);
