@@ -82,10 +82,38 @@ test('все маршруты доступны без фиктивной авт�
   await expect(page.getByRole('heading', { name: 'Такой страницы нет' })).toBeVisible();
 });
 
+test('регистрация объясняет создание семьи и помощь сохраняет приглашение', async ({ page }) => {
+  await page.goto('/register');
+  await expect(page.getByRole('heading', { name: 'Создать новое пространство' })).toBeVisible();
+  await expect(
+    page.getByText('Зарегистрируйте личный аккаунт, затем создайте новую семью.'),
+  ).toBeVisible();
+  await page.getByRole('link', { name: 'Как это работает?' }).click();
+  await expect(page.getByRole('heading', { name: 'Как работает Family' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Присоединиться к семье' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Войти снова' })).toBeVisible();
+
+  const destination = '/invite/' + 'a'.repeat(32);
+  await page.goto(`/register?next=${encodeURIComponent(destination)}`);
+  await expect(page.getByRole('heading', { name: 'Вход по приглашению' })).toBeVisible();
+  await page.getByRole('link', { name: 'Как это работает?' }).click();
+  await expect(page.getByRole('link', { name: 'Вход', exact: true })).toHaveAttribute(
+    'href',
+    `/login?next=${encodeURIComponent(destination)}`,
+  );
+});
+
 test('адаптивность на 320/375/768/1440 без горизонтальной прокрутки', async ({ page }) => {
   for (const width of [320, 375, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });
-    for (const route of ['/dashboard', '/finance', '/settings', '/login']) {
+    for (const route of [
+      '/dashboard',
+      '/finance',
+      '/settings',
+      '/login',
+      '/register',
+      '/help/access',
+    ]) {
       await page.goto(route);
       const overflow = await page.evaluate(
         () => document.documentElement.scrollWidth > window.innerWidth,

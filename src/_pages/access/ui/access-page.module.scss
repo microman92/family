@@ -65,6 +65,33 @@
     text-underline-offset: 4px;
   }
 }
+.card > .helpLink {
+  display: block;
+  width: fit-content;
+  margin: 20px auto 0;
+  color: var(--primary);
+  font-size: 13px;
+  text-align: center;
+  text-underline-offset: 4px;
+}
+.helpContent {
+  display: grid;
+  gap: 20px;
+  section {
+    display: grid;
+    gap: 6px;
+  }
+  h2 {
+    color: var(--foreground);
+    font-size: 15px;
+    font-weight: 650;
+  }
+  p {
+    color: var(--muted-foreground);
+    font-size: 13px;
+    line-height: 1.55;
+  }
+}
 .footer {
   font-size: 12px;
   text-align: center;

@@ -6,14 +6,52 @@ import styles from './access-page.module.scss';
 
 const titles = {
   login: 'С возвращением домой',
-  register: 'Ваше место для семейных дел',
+  register: 'Создать новое пространство',
   reset: 'Восстановление доступа',
   onboarding: 'Семья начинается с вас',
   invite: 'Вас ждут в Family',
   update: 'Новый пароль',
+  help: 'Как работает Family',
 } as const;
 
 type Action = (state: AuthState, data: FormData) => Promise<AuthState>;
+
+export function AccessHelp({ inviteDestination }: { inviteDestination?: string }) {
+  return (
+    <AccessPage kind="help" inviteDestination={inviteDestination}>
+      <div className={styles.helpContent}>
+        <section>
+          <h2>Создать семью</h2>
+          <p>
+            Зарегистрируйтесь через Telegram или по почте. После входа укажите название новой семьи.
+          </p>
+        </section>
+        <section>
+          <h2>Присоединиться к семье</h2>
+          <p>
+            Попросите у администратора ссылку или QR-код. Откройте приглашение через бота, войдите
+            через свой Telegram и подтвердите участие.
+          </p>
+        </section>
+        <section>
+          <h2>Войти снова</h2>
+          <p>
+            После выхода откройте страницу входа и используйте тот же способ, что и раньше: свой
+            Telegram или зарегистрированные почту и пароль. Повторное приглашение не нужно, если вы
+            уже состоите в семье.
+          </p>
+        </section>
+        <section>
+          <h2>Вход по почте</h2>
+          <p>
+            Если вы создали аккаунт через Telegram, для входа по почте сначала добавьте и
+            подтвердите её в настройках аккаунта и установите пароль.
+          </p>
+        </section>
+      </div>
+    </AccessPage>
+  );
+}
 export function AccessPage({
   kind = 'login',
   action,
@@ -38,7 +76,9 @@ export function AccessPage({
         Family Space
       </Link>
       <section className={styles.card} aria-labelledby="access-title">
-        <h1 id="access-title">{titles[kind]}</h1>
+        <h1 id="access-title">
+          {kind === 'register' && inviteDestination ? 'Вход по приглашению' : titles[kind]}
+        </h1>
         <p>
           {
             {
@@ -47,16 +87,17 @@ export function AccessPage({
                 : 'Войдите в своё семейное пространство.',
               register: inviteDestination
                 ? 'Войдите через Telegram, чтобы принять приглашение в семью.'
-                : 'Создайте личный аккаунт для семейного пространства.',
+                : 'Зарегистрируйте личный аккаунт, затем создайте новую семью.',
               reset: 'Укажите почту, чтобы получить ссылку для восстановления.',
               update: 'Введите новый пароль для своего аккаунта.',
               onboarding: 'Создайте пространство для семьи.',
               invite: 'Подтвердите приглашение после входа.',
+              help: 'Выберите подходящий способ начать работу.',
             }[kind]
           }
         </p>
         {error && <p role="alert">{error}</p>}
-        {action && kind !== 'invite' && (
+        {action && kind !== 'invite' && kind !== 'help' && (
           <AuthForm
             mode={kind}
             action={action}
@@ -85,6 +126,18 @@ export function AccessPage({
           </Link>
           <Link href="/reset-password">Забыли пароль?</Link>
         </nav>
+        {kind !== 'help' && (
+          <Link
+            className={styles.helpLink}
+            href={
+              inviteDestination
+                ? `/help/access?next=${encodeURIComponent(inviteDestination)}`
+                : '/help/access'
+            }
+          >
+            Как это работает?
+          </Link>
+        )}
       </section>
       <p className={styles.footer}>У каждого свой вход. Общие записи видны только семье.</p>
     </main>

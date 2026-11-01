@@ -1,1 +1,1 @@
-export { AccessPage } from './ui/access-page';
+export { AccessPage, AccessHelp } from './ui/access-page';
