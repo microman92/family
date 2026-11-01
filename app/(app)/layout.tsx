@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 export const dynamic = 'force-dynamic';
 
 export default async function ApplicationLayout({ children }: { children: React.ReactNode }) {
+  if (!getSupabaseConfig()) redirect('/login');
   let email: string | null = null;
   let familyName: string | null = null;
   let avatarUrl: string | null = null;

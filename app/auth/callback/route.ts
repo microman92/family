@@ -12,6 +12,17 @@ export async function GET(request: NextRequest) {
     const { error } = await client.auth.exchangeCodeForSession(code);
     if (!error) {
       const origin = new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://127.0.0.1:3000').origin;
+      if (
+        request.nextUrl.searchParams.get('registered') === 'email' &&
+        !next.startsWith('/invite/')
+      ) {
+        const { error: signOutError } = await client.auth.signOut({ scope: 'local' });
+        const response = NextResponse.redirect(
+          new URL(signOutError ? '/login?error=callback' : '/login?registered=confirmed', origin),
+        );
+        response.headers.set('Cache-Control', 'private, no-store');
+        return response;
+      }
       const response = NextResponse.redirect(new URL(next, origin));
       response.headers.set('Cache-Control', 'private, no-store');
       return response;

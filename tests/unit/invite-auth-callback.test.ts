@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server';
 
 const savedInvite = vi.hoisted(() => ({ value: null as string | null }));
 const exchangeCode = vi.hoisted(() => vi.fn());
+const signOut = vi.hoisted(() => vi.fn());
 vi.mock('@/server/auth/invite-cookie', () => ({
   getRememberedInvite: async () => savedInvite.value,
   clearRememberedInvite: async () => {
@@ -12,7 +13,7 @@ vi.mock('@/server/auth/invite-cookie', () => ({
 vi.mock('@/server/auth/index.server', () => ({
   getSupabaseConfig: () => ({ url: 'https://supabase.test', key: 'test' }),
   createAuthClient: async () => ({
-    auth: { exchangeCodeForSession: exchangeCode },
+    auth: { exchangeCodeForSession: exchangeCode, signOut },
   }),
 }));
 import { GET } from '../../app/auth/callback/route';
@@ -22,6 +23,7 @@ describe('Возврат после входа по приглашению', () 
     vi.unstubAllEnvs();
     savedInvite.value = null;
     exchangeCode.mockReset();
+    signOut.mockReset();
   });
   it('возвращает к приглашению после успешного входа и сохраняет его до вступления', async () => {
     vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://family.example');
@@ -41,6 +43,18 @@ describe('Возврат после входа по приглашению', () 
     const destination = new URL(result.headers.get('location')!);
     expect(destination.searchParams.get('next')).toBe(invite);
     expect(savedInvite.value).toBe(invite);
+  });
+  it('после подтверждения регистрации завершает сессию и отправляет на вход', async () => {
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://family.example');
+    exchangeCode.mockResolvedValue({ error: null });
+    signOut.mockResolvedValue({ error: null });
+    const result = await GET(
+      new NextRequest('https://family.example/auth/callback?code=valid&registered=email'),
+    );
+    const destination = new URL(result.headers.get('location')!);
+    expect(destination.pathname).toBe('/login');
+    expect(destination.searchParams.get('registered')).toBe('confirmed');
+    expect(signOut).toHaveBeenCalledWith({ scope: 'local' });
   });
   it('сохраняет приглашение, если завершить вход не удалось', async () => {
     vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://family.example');

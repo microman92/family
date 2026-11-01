@@ -14,9 +14,9 @@ export const metadata = { title: 'Вход' };
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string; error?: string }>;
+  searchParams: Promise<{ next?: string; error?: string; registered?: string }>;
 }) {
-  const { next, error } = await searchParams;
+  const { next, error, registered } = await searchParams;
   const destination = safeAuthDestination(next ?? null);
   if (getSupabaseConfig()) {
     const client = await createAuthClient(false);
@@ -46,6 +46,15 @@ export default async function Page({
       action={authenticate.bind(null, 'login')}
       telegram={signInTelegram}
       configured={!!getSupabaseConfig()}
+      notice={
+        registered === 'check-email'
+          ? 'Проверьте почту и подтвердите регистрацию, затем войдите.'
+          : registered === 'confirmed'
+            ? 'Почта подтверждена. Теперь войдите в аккаунт.'
+            : registered === 'success'
+              ? 'Аккаунт создан. Теперь войдите по почте и паролю.'
+              : undefined
+      }
       error={
         error === 'callback'
           ? 'Ссылка входа недействительна или истекла. Попробуйте снова.'

@@ -45,6 +45,7 @@ export function AccessPage({
   configured = false,
   children,
   error,
+  notice,
   inviteDestination,
 }: {
   kind?: keyof typeof titles;
@@ -53,6 +54,7 @@ export function AccessPage({
   configured?: boolean;
   children?: React.ReactNode;
   error?: string;
+  notice?: string;
   inviteDestination?: string;
 }) {
   return (
@@ -83,6 +85,7 @@ export function AccessPage({
           }
         </p>
         {error && <p role="alert">{error}</p>}
+        {notice && <p role="status">{notice}</p>}
         {action && kind !== 'invite' && kind !== 'help' && (
           <AuthForm
             mode={kind}

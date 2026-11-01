@@ -45,12 +45,15 @@ export async function authenticate(
     const { data, error } = await client.auth.signUp({
       email: email.data,
       password: password.data,
-      options: { emailRedirectTo: `${appUrl()}/auth/callback?next=/onboarding` },
+      options: { emailRedirectTo: `${appUrl()}/auth/callback?registered=email` },
     });
     if (error)
       return { error: 'Не удалось зарегистрироваться. Проверьте данные или попробуйте позже.' };
-    if (!data.session) return { message: 'Проверьте почту и подтвердите регистрацию.' };
-    redirect('/onboarding');
+    if (!data.session) redirect('/login?registered=check-email');
+    const { error: signOutError } = await client.auth.signOut({ scope: 'local' });
+    if (signOutError)
+      return { error: 'Аккаунт создан, но не удалось завершить сеанс. Попробуйте войти позже.' };
+    redirect('/login?registered=success');
   }
   const { error } = await client.auth.signInWithPassword({
     email: email.data,
@@ -202,6 +205,9 @@ export async function authenticateForInvite(
       return { error: 'Не удалось зарегистрироваться. Проверьте данные или попробуйте позже.' };
     if (!data.session)
       return { message: 'Проверьте почту и подтвердите регистрацию в этом браузере.' };
+    const { error: signOutError } = await client.auth.signOut({ scope: 'local' });
+    if (signOutError) return { error: 'Не удалось завершить регистрацию. Попробуйте позже.' };
+    redirect(`/login?next=${encodeURIComponent(safeAuthDestination(destination))}`);
   } else {
     const { error } = await client.auth.signInWithPassword({
       email: email.data,

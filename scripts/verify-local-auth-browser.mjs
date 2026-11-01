@@ -73,10 +73,18 @@ try {
   if (!ready) throw new Error('Local application start timed out');
   browser = await chromium.launch(process.platform === 'win32' ? { channel: 'chrome' } : {});
   const page = await browser.newPage();
+  for (const route of ['/dashboard', '/family', '/settings', '/onboarding']) {
+    await page.goto(`${origin}${route}`);
+    if (new URL(page.url()).pathname !== '/login') throw new Error(`Guest accessed ${route}`);
+  }
   await page.goto(`${origin}/register`);
   await page.getByLabel('Электронная почта').fill(email);
   await page.getByLabel('Пароль', { exact: true }).fill(oldPassword);
   await page.getByRole('button', { name: 'Зарегистрироваться' }).click();
+  await page.waitForURL('**/login?registered=success');
+  await page.getByLabel('Электронная почта').fill(email);
+  await page.getByLabel('Пароль', { exact: true }).fill(oldPassword);
+  await page.getByRole('button', { name: 'Войти по почте' }).click();
   await page.waitForURL('**/onboarding');
   await page.getByLabel('Название семьи').fill('Временная проверка');
   await page.getByRole('button', { name: 'Создать семью' }).click();
@@ -198,6 +206,10 @@ try {
       await page.waitForURL('**/login');
     }
     await logout();
+    for (const route of ['/dashboard', '/family', '/settings', '/onboarding']) {
+      await page.goto(`${origin}${route}`);
+      if (new URL(page.url()).pathname !== '/login') throw new Error(`Guest accessed ${route}`);
+    }
     await page.getByLabel('Электронная почта').fill(email);
     await page.getByLabel('Пароль', { exact: true }).fill(oldPassword);
     await page.getByRole('button', { name: 'Войти по почте' }).click();
