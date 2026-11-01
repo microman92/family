@@ -65,6 +65,7 @@ describe('Семейные права и приглашения в PostgreSQL', 
     await db.exec(
       await readFile('supabase/migrations/20261101030000_service_scope_access.sql', 'utf8'),
     );
+    await db.exec(await readFile('supabase/migrations/20261101040000_family_titles.sql', 'utf8'));
     await db.query(
       'insert into auth.users (id, email, raw_user_meta_data) values ($1, \'admin@example.com\', \'{"name":"Администратор"}\')',
       [users.admin],
@@ -129,8 +130,23 @@ describe('Семейные права и приглашения в PostgreSQL', 
     expect(members.rows).toHaveLength(1);
     expect(members.rows[0]!.role).toBe('admin');
     adminMemberId = members.rows[0]!.id;
+    await db.query('select public.set_family_title($1,$2,$3)', [adminMemberId, 'member', 'king']);
+    expect(
+      (
+        await db.query<{ title: string; role: string }>(
+          'select title, role from public.family_members where id=$1',
+          [adminMemberId],
+        )
+      ).rows[0],
+    ).toEqual({ title: 'king', role: 'admin' });
+    await expect(
+      db.query('select public.set_family_title($1,$2,$3)', [adminMemberId, 'member', 'princess']),
+    ).rejects.toThrow();
     await expect(db.query('select public.create_family($1)', ['Вторая семья'])).rejects.toThrow();
     await asUser(users.outsider);
+    await expect(
+      db.query('select public.set_family_title($1,$2,$3)', [adminMemberId, 'member', 'queen']),
+    ).rejects.toThrow();
     expect((await db.query('select id from public.families')).rows).toHaveLength(0);
     await expect(
       db.query(
@@ -271,6 +287,23 @@ describe('Семейные права и приглашения в PostgreSQL', 
     await asUser(users.admin);
     await db.query('select public.add_child_profile($1)', ['Ребёнок']);
     expect((await db.query('select id from public.member_profiles')).rows).toHaveLength(1);
+    const childProfile = await db.query<{ id: string }>('select id from public.member_profiles');
+    await db.query('select public.set_family_title($1,$2,$3)', [
+      childProfile.rows[0]!.id,
+      'child_profile',
+      'princess',
+    ]);
+    expect(
+      (await db.query<{ title: string }>('select title from public.member_profiles')).rows[0]!
+        .title,
+    ).toBe('princess');
+    await expect(
+      db.query('select public.set_family_title($1,$2,$3)', [
+        childProfile.rows[0]!.id,
+        'child_profile',
+        'king',
+      ]),
+    ).rejects.toThrow();
     const invitation = await db.query<{ id: string }>(
       'select public.create_family_invite($1,$2) as id',
       [hash('expired'), 'child'],

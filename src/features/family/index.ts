@@ -4,4 +4,5 @@ export {
   ChildProfileForm,
   RemoveMember,
   MemberRoleForm,
+  FamilyTitleForm,
 } from './ui/invitation-form';

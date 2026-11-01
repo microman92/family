@@ -163,7 +163,7 @@ export function MemberRoleForm({
   const [state, submit, pending] = useActionState(action, {});
   return (
     <details className={styles.role}>
-      <summary>Изменить роль</summary>
+      <summary>Права доступа</summary>
       <form action={submit} className={styles.form}>
         <label>
           Роль участника {name}
@@ -181,6 +181,53 @@ export function MemberRoleForm({
         {state.message && <p role="status">{state.message}</p>}
         <Button type="submit" size="sm" disabled={pending}>
           {pending ? 'Сохраняем…' : 'Сохранить роль'}
+        </Button>
+      </form>
+    </details>
+  );
+}
+
+export function FamilyTitleForm({
+  action,
+  name,
+  child,
+  title,
+}: {
+  action: (state: AuthState, data: FormData) => Promise<AuthState>;
+  name: string;
+  child: boolean;
+  title: string | null;
+}) {
+  const [state, submit, pending] = useActionState(action, {});
+  return (
+    <details className={styles.role}>
+      <summary>Изменить титул</summary>
+      <form action={submit} className={styles.form}>
+        <label>
+          Титул участника {name}
+          <select name="title" defaultValue={title ?? 'none'} disabled={pending}>
+            <option value="none">Не выбран</option>
+            {child ? (
+              <>
+                <option value="prince">Принц семьи</option>
+                <option value="princess">Принцесса семьи</option>
+              </>
+            ) : (
+              <>
+                <option value="king">Король семьи</option>
+                <option value="queen">Королева семьи</option>
+              </>
+            )}
+          </select>
+        </label>
+        {state.error && (
+          <p className={styles.error} role="alert">
+            {state.error}
+          </p>
+        )}
+        {state.message && <p role="status">{state.message}</p>}
+        <Button type="submit" size="sm" disabled={pending}>
+          {pending ? 'Сохраняем…' : 'Сохранить титул'}
         </Button>
       </form>
     </details>

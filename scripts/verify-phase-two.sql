@@ -64,6 +64,18 @@ values (current_setting('test.member')::uuid, current_setting('test.member'), 'c
 set local role authenticated;
 select set_config('request.jwt.claim.sub', current_setting('test.admin'), true);
 select set_config('test.family', public.create_family('Phase 2 transaction only')::text, true);
+select set_config('test.admin_member', (select id::text from public.family_members where user_id=auth.uid() and status='active'), true);
+select public.set_family_title(current_setting('test.admin_member')::uuid, 'member', 'king');
+do $$
+begin
+  if not exists (select 1 from public.family_members where id=current_setting('test.admin_member')::uuid and title='king' and role='admin') then
+    raise exception 'FAIL: title changed authorization role';
+  end if;
+  begin
+    perform public.set_family_title(current_setting('test.admin_member')::uuid, 'member', 'princess');
+    raise exception 'FAIL: incompatible title accepted';
+  exception when invalid_parameter_value then null; end;
+end $$;
 insert into storage.objects (bucket_id, name)
 values ('profile-avatars', current_setting('test.admin') || '/security-test.webp');
 do $$
@@ -79,6 +91,12 @@ select set_config('test.revoked_id', public.create_family_invite(current_setting
 select public.revoke_family_invite(current_setting('test.revoked_id')::uuid);
 select public.create_family_invite(current_setting('test.expired'), 'member');
 select public.add_child_profile('Transactional child');
+select set_config('test.child_profile', (select id::text from public.member_profiles where family_id=current_setting('test.family')::uuid limit 1), true);
+select public.set_family_title(current_setting('test.child_profile')::uuid, 'child_profile', 'princess');
+do $$
+begin
+  if not exists (select 1 from public.member_profiles where id=current_setting('test.child_profile')::uuid and title='princess') then raise exception 'FAIL: child title not saved'; end if;
+end $$;
 do $$
 begin
   begin
@@ -128,6 +146,10 @@ begin
   begin
     perform public.accept_telegram_invite(current_setting('test.handoff'));
     raise exception 'FAIL: outsider accepted invitation';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.set_family_title(current_setting('test.admin_member')::uuid, 'member', 'queen');
+    raise exception 'FAIL: foreign title changed';
   exception when insufficient_privilege then null; end;
 end $$;
 select set_config('test.other_family', public.create_family('Other transactional family')::text, true);
@@ -272,6 +294,10 @@ begin
   begin
     perform public.create_family_invite(md5(random()::text) || md5(random()::text), 'member');
     raise exception 'FAIL: child created invitation';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.set_family_title(current_setting('test.child_profile')::uuid, 'child_profile', 'prince');
+    raise exception 'FAIL: child changed title';
   exception when insufficient_privilege then null; end;
 end $$;
 select set_config('request.jwt.claim.sub', current_setting('test.admin'), true);

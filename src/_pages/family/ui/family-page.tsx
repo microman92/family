@@ -1,4 +1,10 @@
-import { InvitationForm, ChildProfileForm, RemoveMember, MemberRoleForm } from '@/features/family';
+import {
+  InvitationForm,
+  ChildProfileForm,
+  RemoveMember,
+  MemberRoleForm,
+  FamilyTitleForm,
+} from '@/features/family';
 import { Button } from '@/shared/ui';
 import type { InviteState, AuthState } from '@/shared/lib/auth';
 import styles from './family-page.module.scss';
@@ -7,6 +13,7 @@ type Member = {
   member_id: string;
   user_id: string;
   role: 'admin' | 'member' | 'child';
+  title: 'king' | 'queen' | 'prince' | 'princess' | null;
   display_name: string;
   created_at: string;
 };
@@ -18,6 +25,12 @@ type Invite = {
   revoked_at: string | null;
 };
 const roleNames = { admin: 'Администратор', member: 'Участник', child: 'Ребёнок' };
+const titles = {
+  king: 'Король семьи',
+  queen: 'Королева семьи',
+  prince: 'Принц семьи',
+  princess: 'Принцесса семьи',
+};
 
 export function FamilyPage({
   name,
@@ -32,6 +45,7 @@ export function FamilyPage({
   addChild,
   removeMember,
   changeMemberRole,
+  setFamilyTitle,
 }: {
   name: string;
   members: Member[];
@@ -41,10 +55,16 @@ export function FamilyPage({
   createInvite: (state: InviteState, data: FormData) => Promise<InviteState>;
   revokeInvite: (form: FormData) => Promise<void>;
   currentUser: string;
-  childProfiles: { id: string; display_name: string }[];
+  childProfiles: { id: string; display_name: string; title: 'prince' | 'princess' | null }[];
   addChild: (state: AuthState, data: FormData) => Promise<AuthState>;
   removeMember: (id: string) => Promise<AuthState>;
   changeMemberRole: (id: string, state: AuthState, data: FormData) => Promise<AuthState>;
+  setFamilyTitle: (
+    id: string,
+    type: 'member' | 'child_profile',
+    state: AuthState,
+    data: FormData,
+  ) => Promise<AuthState>;
 }) {
   return (
     <div className={styles.page}>
@@ -58,7 +78,15 @@ export function FamilyPage({
           {members.map((member) => (
             <li key={member.member_id}>
               <span>{member.display_name}</span>
-              <small>{roleNames[member.role]}</small>
+              <small>{member.title ? titles[member.title] : 'Титул не выбран'}</small>
+              {isAdmin && (
+                <FamilyTitleForm
+                  name={member.display_name}
+                  child={member.role === 'child'}
+                  title={member.title}
+                  action={setFamilyTitle.bind(null, member.member_id, 'member')}
+                />
+              )}
               {isAdmin && (
                 <MemberRoleForm
                   name={member.display_name}
@@ -83,8 +111,18 @@ export function FamilyPage({
                 <li key={profile.id}>
                   <span>
                     {profile.display_name}
-                    <small>Ребёнок, без аккаунта</small>
+                    <small>
+                      {profile.title ? titles[profile.title] : 'Титул не выбран'} · без аккаунта
+                    </small>
                   </span>
+                  {isAdmin && (
+                    <FamilyTitleForm
+                      name={profile.display_name}
+                      child
+                      title={profile.title}
+                      action={setFamilyTitle.bind(null, profile.id, 'child_profile')}
+                    />
+                  )}
                 </li>
               ))}
             </ul>

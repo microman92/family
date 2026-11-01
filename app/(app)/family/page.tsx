@@ -9,6 +9,7 @@ import {
   addChild,
   removeMember,
   changeMemberRole,
+  setFamilyTitle,
 } from '@/server/auth/index.server';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
@@ -47,6 +48,21 @@ export default async function Page() {
       }),
     )
     .parse(roster);
+  const { data: titlesData, error: titlesError } = await client
+    .from('family_members')
+    .select('id,title')
+    .eq('family_id', membership.family_id)
+    .eq('status', 'active');
+  if (titlesError) throw new Error('Не удалось загрузить титулы');
+  const titles = z
+    .array(
+      z.object({ id: z.uuid(), title: z.enum(['king', 'queen', 'prince', 'princess']).nullable() }),
+    )
+    .parse(titlesData);
+  const membersWithTitles = members.map((member) => ({
+    ...member,
+    title: titles.find((title) => title.id === member.member_id)?.title ?? null,
+  }));
   const isAdmin = membership.role === 'admin';
   let invites: {
     id: string;
@@ -57,12 +73,18 @@ export default async function Page() {
   }[] = [];
   const { data: childrenData, error: childrenError } = await client
     .from('member_profiles')
-    .select('id,display_name')
+    .select('id,display_name,title')
     .eq('family_id', membership.family_id)
     .is('linked_member_id', null);
   if (childrenError) throw new Error('Не удалось загрузить профили');
   const childProfiles = z
-    .array(z.object({ id: z.uuid(), display_name: z.string() }))
+    .array(
+      z.object({
+        id: z.uuid(),
+        display_name: z.string(),
+        title: z.enum(['prince', 'princess']).nullable(),
+      }),
+    )
     .parse(childrenData);
   if (isAdmin) {
     const { data, error } = await client
@@ -86,7 +108,7 @@ export default async function Page() {
   return (
     <FamilyPage
       name={family.name}
-      members={members}
+      members={membersWithTitles}
       invites={invites}
       isAdmin={isAdmin}
       botConfigured={isTelegramInviteConfigured()}
@@ -97,6 +119,7 @@ export default async function Page() {
       addChild={addChild}
       removeMember={removeMember}
       changeMemberRole={changeMemberRole}
+      setFamilyTitle={setFamilyTitle}
     />
   );
 }

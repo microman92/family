@@ -251,6 +251,39 @@ export async function addChild(_previous: AuthState, form: FormData): Promise<Au
   return { message: 'Профиль добавлен.' };
 }
 
+export async function setFamilyTitle(
+  targetId: string,
+  targetType: 'member' | 'child_profile',
+  _previous: AuthState,
+  form: FormData,
+): Promise<AuthState> {
+  const title = form.get('title');
+  if (
+    !/^[0-9a-f-]{36}$/i.test(targetId) ||
+    !['member', 'child_profile'].includes(targetType) ||
+    typeof title !== 'string' ||
+    !['none', 'king', 'queen', 'prince', 'princess'].includes(title)
+  )
+    return { error: 'Выберите подходящий титул.' };
+  let client;
+  try {
+    ({ client } = await requireCurrentFamilyCapability('family.manage'));
+  } catch (error) {
+    if (error instanceof AccessDeniedError)
+      return { error: 'Для изменения титула нужны права администратора.' };
+    throw error;
+  }
+  const { error } = await client.rpc('set_family_title', {
+    target_id: targetId,
+    target_type: targetType,
+    new_title: title,
+  });
+  if (error) return { error: 'Не удалось изменить титул. Проверьте доступ и выбранный вариант.' };
+  const { revalidatePath } = await import('next/cache');
+  revalidatePath('/family');
+  return { message: 'Титул сохранён.' };
+}
+
 export async function removeMember(memberId: string): Promise<AuthState> {
   if (!/^[0-9a-f-]{36}$/i.test(memberId)) return { error: 'Некорректный участник.' };
   let client;

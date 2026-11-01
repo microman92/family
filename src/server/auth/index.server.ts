@@ -11,6 +11,7 @@ export {
   signInTelegramForInvite,
   switchAccountForInvite,
   addChild,
+  setFamilyTitle,
   removeMember,
   changeMemberRole,
   confirmTelegramIdentity,
