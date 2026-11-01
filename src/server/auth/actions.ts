@@ -9,7 +9,13 @@ import QRCode from 'qrcode';
 import { safeAuthDestination, type InviteState } from '@/shared/lib/auth';
 import { beginTelegramBinding } from './telegram-bind';
 import { rememberInvite, clearRememberedInvite } from './invite-cookie';
-import { AccessDeniedError, requireCurrentFamilyCapability } from '@/server/access/index.server';
+import {
+  AccessDeniedError,
+  getCurrentUser,
+  requireCapability,
+  requireCurrentFamilyCapability,
+  requireFamilyMember,
+} from '@/server/access/index.server';
 
 function appUrl() {
   return new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://127.0.0.1:3000').origin;
@@ -247,12 +253,23 @@ export async function addChild(_previous: AuthState, form: FormData): Promise<Au
 
 export async function removeMember(memberId: string): Promise<AuthState> {
   if (!/^[0-9a-f-]{36}$/i.test(memberId)) return { error: 'Некорректный участник.' };
-  const client = await createAuthClient();
-  const {
-    data: { user },
-    error: userError,
-  } = await client.auth.getUser();
-  if (userError || !user) return { error: 'Войдите в аккаунт и попробуйте снова.' };
+  let client;
+  try {
+    const actor = await getCurrentUser();
+    client = actor.client;
+    const { data: target, error } = await client
+      .from('family_members')
+      .select('family_id,user_id')
+      .eq('id', memberId)
+      .eq('status', 'active')
+      .maybeSingle();
+    if (error || !target) throw new AccessDeniedError();
+    if (target.user_id === actor.user.id) await requireFamilyMember(target.family_id);
+    else await requireCapability(target.family_id, 'family.manage');
+  } catch (error) {
+    if (error instanceof AccessDeniedError) return { error: 'Не удалось изменить состав семьи.' };
+    throw error;
+  }
   const { error } = await client.rpc('remove_family_member', { target_member: memberId });
   if (error)
     return {

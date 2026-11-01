@@ -82,6 +82,9 @@ try {
   await page.getByLabel('Имя ребёнка').fill('Временный профиль');
   await page.getByRole('button', { name: 'Добавить профиль' }).click();
   await page.getByRole('status').filter({ hasText: 'Профиль добавлен' }).waitFor();
+  await page.getByRole('button', { name: 'Покинуть семью' }).click();
+  await page.getByRole('button', { name: 'Подтвердить', exact: true }).click();
+  await page.getByRole('alert').filter({ hasText: 'Последний администратор' }).waitFor();
   async function logout() {
     await page.getByRole('button', { name: 'Меню пользователя' }).click();
     await page.getByRole('menuitem', { name: 'Выйти' }).click();

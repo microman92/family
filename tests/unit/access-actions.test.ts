@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const state = vi.hoisted(() => ({
   user: { id: 'authenticated-user' } as { id: string } | null,
   member: null as { role: string; family_id: string } | null,
+  target: null as { family_id: string; user_id: string } | null,
   rpc: vi.fn(),
 }));
 vi.mock('server-only', () => ({}));
@@ -17,20 +18,34 @@ vi.mock('@/server/auth/client', () => ({
     auth: { getUser: async () => ({ data: { user: state.user }, error: null }) },
     rpc: state.rpc,
     from: () => {
+      let selection = '';
       const query = {
-        select: () => query,
+        select: (columns: string) => {
+          selection = columns;
+          return query;
+        },
         eq: () => query,
-        maybeSingle: async () => ({ data: state.member, error: null }),
+        maybeSingle: async () => ({
+          data: selection === 'family_id,user_id' ? state.target : state.member,
+          error: null,
+        }),
       };
       return query;
     },
   }),
 }));
-import { addChild, changeMemberRole, createInvite, revokeInvite } from '@/server/auth/actions';
+import {
+  addChild,
+  changeMemberRole,
+  createInvite,
+  removeMember,
+  revokeInvite,
+} from '@/server/auth/actions';
 
 beforeEach(() => {
   state.user = { id: 'authenticated-user' };
   state.member = null;
+  state.target = null;
   state.rpc.mockReset().mockResolvedValue({ error: null });
 });
 
@@ -68,6 +83,32 @@ describe('Защита действий администратора', () => {
     form.set('name', 'Ребёнок');
     expect(await addChild({}, form)).toHaveProperty('error');
     expect(state.rpc).not.toHaveBeenCalled();
+  });
+  it('разрешает собственный выход и исключение другим только администратору', async () => {
+    state.member = { role: 'member', family_id: 'family-a' };
+    state.target = { user_id: 'other-user', family_id: 'family-a' };
+    expect(await removeMember(memberId)).toHaveProperty('error');
+    expect(state.rpc).not.toHaveBeenCalled();
+    state.target = { user_id: 'authenticated-user', family_id: 'family-a' };
+    expect(await removeMember(memberId)).toHaveProperty('message');
+    expect(state.rpc).toHaveBeenCalledWith('remove_family_member', { target_member: memberId });
+    state.rpc.mockClear();
+    state.member = { role: 'admin', family_id: 'family-a' };
+    state.target = { user_id: 'other-user', family_id: 'family-a' };
+    expect(await removeMember(memberId)).toHaveProperty('message');
+    expect(state.rpc).toHaveBeenCalledWith('remove_family_member', { target_member: memberId });
+    state.rpc.mockClear();
+    state.target = null;
+    expect(await removeMember(memberId)).toHaveProperty('error');
+    expect(state.rpc).not.toHaveBeenCalled();
+  });
+  it('сохраняет понятную ошибку при попытке последнего администратора выйти', async () => {
+    state.member = { role: 'admin', family_id: 'family-a' };
+    state.target = { user_id: 'authenticated-user', family_id: 'family-a' };
+    state.rpc.mockResolvedValue({ error: { code: '23514' } });
+    expect(await removeMember(memberId)).toEqual({
+      error: 'Последний администратор не может покинуть семью.',
+    });
   });
   it('сохраняет доступ администратора к приглашению, отзыву и изменению роли', async () => {
     state.member = { role: 'admin', family_id: 'family-a' };
