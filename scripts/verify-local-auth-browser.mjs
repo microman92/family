@@ -53,6 +53,7 @@ const server = spawn(
 );
 let browser;
 let messageId;
+let memberId;
 try {
   let ready = false;
   for (let i = 0; i < 90; i++) {
@@ -85,6 +86,59 @@ try {
   await page.getByRole('button', { name: 'Покинуть семью' }).click();
   await page.getByRole('button', { name: 'Подтвердить', exact: true }).click();
   await page.getByRole('alert').filter({ hasText: 'Последний администратор' }).waitFor();
+  const users = await admin.auth.admin.listUsers();
+  const owner = users.data?.users.find((item) => item.email === email);
+  if (users.error || !owner || !/^[0-9a-f-]{36}$/i.test(owner.id))
+    throw new Error('Local test owner unavailable');
+  const memberEmail = email.replace('family-browser-', 'family-browser-member-');
+  const createdMember = await admin.auth.admin.createUser({
+    email: memberEmail,
+    password: oldPassword,
+    email_confirm: true,
+    user_metadata: { name: 'Тестовый участник' },
+  });
+  if (createdMember.error || !createdMember.data.user)
+    throw new Error('Local test member creation failed');
+  memberId = createdMember.data.user.id;
+  if (!/^[0-9a-f-]{36}$/i.test(memberId)) throw new Error('Unexpected local member ID');
+  const inserted = spawnSync(
+    'docker',
+    [
+      'exec',
+      '-i',
+      'supabase_db_family-space',
+      'psql',
+      '-U',
+      'postgres',
+      '-d',
+      'postgres',
+      '-qtAc',
+      `insert into public.family_members (family_id,user_id,role) select id,'${memberId}'::uuid,'member' from public.families where created_by='${owner.id}'::uuid returning id`,
+    ],
+    { encoding: 'utf8' },
+  );
+  if (inserted.status !== 0 || !/^[0-9a-f-]{36}$/i.test(inserted.stdout.trim()))
+    throw new Error('Local test membership creation failed');
+  const memberClient = createClient(api, process.env.ANON_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  if (
+    (await memberClient.auth.signInWithPassword({ email: memberEmail, password: oldPassword }))
+      .error
+  )
+    throw new Error('Local member login failed');
+  const beforeRemoval = await memberClient.from('families').select('id');
+  if (beforeRemoval.error || beforeRemoval.data.length !== 1)
+    throw new Error('Local member cannot see family');
+  await page.reload();
+  const memberRow = page.locator('li').filter({ hasText: 'Тестовый участник' });
+  await memberRow.getByRole('button', { name: 'Исключить' }).click();
+  await memberRow.getByRole('button', { name: 'Подтвердить', exact: true }).click();
+  await memberRow.waitFor({ state: 'detached' });
+  const afterRemoval = await memberClient.from('families').select('id');
+  if (afterRemoval.error || afterRemoval.data.length !== 0)
+    throw new Error('Removed member retains family access');
+  await memberClient.auth.signOut({ scope: 'local' });
   async function logout() {
     await page.getByRole('button', { name: 'Меню пользователя' }).click();
     await page.getByRole('menuitem', { name: 'Выйти' }).click();
@@ -127,7 +181,7 @@ try {
   await page.getByRole('button', { name: 'Войти по почте' }).click();
   await page.waitForURL('**/dashboard');
   console.log(
-    'PASS: browser signup, family creation, admin action, logout, login, recovery and password reset',
+    'PASS: browser signup, family creation, admin actions, member removal, revoked access, login and recovery',
   );
 } finally {
   try {
@@ -158,6 +212,10 @@ try {
       if (deletion.status !== 0) throw new Error('Failed to clean up local test family');
       const removed = await admin.auth.admin.deleteUser(user.id);
       if (removed.error) throw new Error('Failed to clean up local test user');
+    }
+    if (memberId) {
+      const removedMember = await admin.auth.admin.deleteUser(memberId);
+      if (removedMember.error) throw new Error('Failed to clean up local test member');
     }
     if (messageId)
       await fetch(new URL('/api/v1/messages', mail), {
