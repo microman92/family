@@ -86,6 +86,31 @@ try {
   await page.locator('select[name="title"]').first().selectOption('king');
   await page.getByRole('button', { name: 'Сохранить титул' }).first().click();
   await page.locator('small').getByText('Король семьи', { exact: true }).waitFor();
+  const ownerRow = page.locator('li').filter({ hasText: 'Король семьи' });
+  await ownerRow.getByText('Изменить титул').waitFor();
+  if (await ownerRow.locator('select[name="title"]').isVisible())
+    throw new Error('Title form stayed open');
+  await ownerRow.getByText('Изменить титул').click();
+  if ((await ownerRow.locator('select[name="title"]').inputValue()) !== 'king')
+    throw new Error('Saved title not selected');
+  await ownerRow.getByRole('button', { name: 'Сохранить титул' }).click();
+  await ownerRow.locator('select[name="title"]').waitFor({ state: 'hidden' });
+  await ownerRow.getByText('Права доступа').click();
+  await ownerRow.locator('select[name="role"]').selectOption('member');
+  await ownerRow.getByRole('button', { name: 'Сохранить роль' }).click();
+  await ownerRow
+    .getByRole('alert')
+    .filter({ hasText: 'Назначьте другого администратора' })
+    .waitFor();
+  if (!(await ownerRow.locator('select[name="role"]').isVisible()))
+    throw new Error('Role error closed the form');
+  await ownerRow.locator('select[name="role"]').selectOption('admin');
+  await ownerRow.getByRole('button', { name: 'Сохранить роль' }).click();
+  await ownerRow.locator('select[name="role"]').waitFor({ state: 'hidden' });
+  await ownerRow.getByText('Права доступа').click();
+  if ((await ownerRow.locator('select[name="role"]').inputValue()) !== 'admin')
+    throw new Error('Saved role not selected');
+  await ownerRow.getByText('Права доступа').click();
   await page.getByLabel('Имя ребёнка').fill('Временный профиль');
   await page.getByRole('button', { name: 'Добавить профиль' }).click();
   await page.getByRole('status').filter({ hasText: 'Профиль добавлен' }).waitFor();
@@ -94,6 +119,11 @@ try {
   await childRow.locator('select[name="title"]').selectOption('princess');
   await childRow.getByRole('button', { name: 'Сохранить титул' }).click();
   await childRow.locator('small').filter({ hasText: 'Принцесса семьи' }).waitFor();
+  if (await childRow.locator('select[name="title"]').isVisible())
+    throw new Error('Child title form stayed open');
+  await childRow.getByText('Изменить титул').click();
+  if ((await childRow.locator('select[name="title"]').inputValue()) !== 'princess')
+    throw new Error('Saved child title not selected');
   await page.reload();
   await page.locator('small').getByText('Король семьи', { exact: true }).waitFor();
   await page

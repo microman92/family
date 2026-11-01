@@ -81,6 +81,7 @@ export function FamilyPage({
               <small>{member.title ? titles[member.title] : 'Титул не выбран'}</small>
               {isAdmin && (
                 <FamilyTitleForm
+                  key={`${member.role}:${member.title ?? 'none'}`}
                   name={member.display_name}
                   child={member.role === 'child'}
                   title={member.title}
@@ -89,6 +90,7 @@ export function FamilyPage({
               )}
               {isAdmin && (
                 <MemberRoleForm
+                  key={member.role}
                   name={member.display_name}
                   role={member.role}
                   action={changeMemberRole.bind(null, member.member_id)}
@@ -117,6 +119,7 @@ export function FamilyPage({
                   </span>
                   {isAdmin && (
                     <FamilyTitleForm
+                      key={profile.title ?? 'none'}
                       name={profile.display_name}
                       child
                       title={profile.title}

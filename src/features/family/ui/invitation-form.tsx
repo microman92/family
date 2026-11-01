@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { Button, Input } from '@/shared/ui';
 import type { InviteState, AuthState } from '@/shared/lib/auth';
@@ -161,13 +161,23 @@ export function MemberRoleForm({
   role: 'admin' | 'member' | 'child';
 }) {
   const [state, submit, pending] = useActionState(action, {});
+  const details = useRef<HTMLDetailsElement>(null);
+  const [selectedRole, setSelectedRole] = useState(role);
+  useEffect(() => {
+    if (state.message && details.current) details.current.open = false;
+  }, [state]);
   return (
-    <details className={styles.role}>
+    <details className={styles.role} ref={details}>
       <summary>Права доступа</summary>
       <form action={submit} className={styles.form}>
         <label>
           Роль участника {name}
-          <select name="role" defaultValue={role} disabled={pending}>
+          <select
+            name="role"
+            value={selectedRole}
+            onChange={(event) => setSelectedRole(event.target.value as typeof role)}
+            disabled={pending}
+          >
             <option value="admin">Администратор</option>
             <option value="member">Участник</option>
             <option value="child">Ребёнок</option>
@@ -178,7 +188,6 @@ export function MemberRoleForm({
             {state.error}
           </p>
         )}
-        {state.message && <p role="status">{state.message}</p>}
         <Button type="submit" size="sm" disabled={pending}>
           {pending ? 'Сохраняем…' : 'Сохранить роль'}
         </Button>
@@ -199,13 +208,23 @@ export function FamilyTitleForm({
   title: string | null;
 }) {
   const [state, submit, pending] = useActionState(action, {});
+  const details = useRef<HTMLDetailsElement>(null);
+  const [selectedTitle, setSelectedTitle] = useState(title ?? 'none');
+  useEffect(() => {
+    if (state.message && details.current) details.current.open = false;
+  }, [state]);
   return (
-    <details className={styles.role}>
+    <details className={styles.role} ref={details}>
       <summary>Изменить титул</summary>
       <form action={submit} className={styles.form}>
         <label>
           Титул участника {name}
-          <select name="title" defaultValue={title ?? 'none'} disabled={pending}>
+          <select
+            name="title"
+            value={selectedTitle}
+            onChange={(event) => setSelectedTitle(event.target.value)}
+            disabled={pending}
+          >
             <option value="none">Не выбран</option>
             {child ? (
               <>
@@ -225,7 +244,6 @@ export function FamilyTitleForm({
             {state.error}
           </p>
         )}
-        {state.message && <p role="status">{state.message}</p>}
         <Button type="submit" size="sm" disabled={pending}>
           {pending ? 'Сохраняем…' : 'Сохранить титул'}
         </Button>
