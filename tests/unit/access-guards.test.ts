@@ -60,19 +60,38 @@ describe('Серверные проверки доступа', () => {
   });
   it('оставляет личное пространство только владельцу независимо от членства', async () => {
     await expect(
-      assertRecordScope({ visibility: 'private', ownerUserId: 'authenticated-user' }),
+      assertRecordScope(
+        { visibility: 'private', ownerUserId: 'authenticated-user' },
+        'finance.read',
+      ),
     ).resolves.toBeDefined();
     await expect(
-      assertRecordScope({ visibility: 'private', ownerUserId: 'another-user' }),
+      assertRecordScope({ visibility: 'private', ownerUserId: 'another-user' }, 'finance.read'),
     ).rejects.toThrow('Access denied');
-    await expect(assertRecordScope({ visibility: 'family', familyId: 'family-a' })).rejects.toThrow(
-      'Access denied',
-    );
     await expect(
-      assertRecordScope({
-        visibility: 'unexpected',
-        ownerUserId: 'authenticated-user',
-      } as unknown as Scope),
+      assertRecordScope({ visibility: 'family', familyId: 'family-a' }, 'finance.read'),
+    ).rejects.toThrow('Access denied');
+    await expect(
+      assertRecordScope(
+        {
+          visibility: 'unexpected',
+          ownerUserId: 'authenticated-user',
+        } as unknown as Scope,
+        'finance.read',
+      ),
+    ).rejects.toThrow('Access denied');
+  });
+  it('для семейного scope требует право, а не только членство', async () => {
+    state.member = { role: 'child' };
+    await expect(
+      assertRecordScope({ visibility: 'family', familyId: 'family-a' }, 'finance.read'),
+    ).rejects.toThrow('Access denied');
+    state.member = { role: 'member' };
+    await expect(
+      assertRecordScope({ visibility: 'family', familyId: 'family-a' }, 'finance.read'),
+    ).resolves.toMatchObject({ role: 'member' });
+    await expect(
+      assertRecordScope({ visibility: 'family', familyId: 'family-a' }, undefined as never),
     ).rejects.toThrow('Access denied');
   });
   it('получает текущую семью из базы и запрещает администрирование участнику или ребёнку', async () => {

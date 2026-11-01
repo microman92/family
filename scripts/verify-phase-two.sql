@@ -226,7 +226,9 @@ begin
   if not private.has_family_capability(current_setting('test.family')::uuid, 'family.manage')
      or not private.has_family_capability(current_setting('test.family')::uuid, 'finance.write')
      or private.has_family_capability(current_setting('test.other_family')::uuid, 'finance.read')
-     or private.has_family_capability(current_setting('test.family')::uuid, 'unexpected') then
+     or private.has_family_capability(current_setting('test.family')::uuid, 'unexpected')
+     or private.has_family_capability(current_setting('test.family')::uuid, 'constructor')
+     or private.has_family_capability(current_setting('test.family')::uuid, '__proto__') then
     raise exception 'FAIL: administrator capability mismatch';
   end if;
 end $$;

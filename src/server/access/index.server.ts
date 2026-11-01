@@ -64,9 +64,9 @@ export async function requireCurrentFamilyCapability(capability: FamilyCapabilit
   return { client, user, familyId: data.family_id, role: data.role as FamilyRole };
 }
 
-/** Checks ownership/membership only. Family operations must also check their capability. */
-export async function assertRecordScope(scope: Scope) {
-  if (scope.visibility === 'family') return requireFamilyMember(scope.familyId);
+/** Private access checks ownership; family access requires both membership and a capability. */
+export async function assertRecordScope(scope: Scope, familyCapability: FamilyCapability) {
+  if (scope.visibility === 'family') return requireCapability(scope.familyId, familyCapability);
   if (scope.visibility !== 'private') throw new AccessDeniedError();
   const actor = await getCurrentUser();
   if (scope.ownerUserId !== actor.user.id) throw new AccessDeniedError();

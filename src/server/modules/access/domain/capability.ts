@@ -10,5 +10,6 @@ const capabilities: Record<FamilyCapability, readonly FamilyRole[]> = {
 
 /** Child capabilities are denied until a specific permission is designed and enforced. */
 export function hasFamilyCapability(role: FamilyRole, capability: FamilyCapability): boolean {
-  return capabilities[capability].includes(role);
+  const allowedRoles = capabilities[capability];
+  return Array.isArray(allowedRoles) && allowedRoles.includes(role);
 }

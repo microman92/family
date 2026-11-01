@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { sameScope, scopeFromColumns } from '@/server/modules/access/domain/scope';
-import { hasFamilyCapability } from '@/server/modules/access/domain/capability';
+import {
+  hasFamilyCapability,
+  type FamilyCapability,
+} from '@/server/modules/access/domain/capability';
 
 describe('Границы семейных и личных данных', () => {
   it('распознаёт только корректные пары владельца и семьи', () => {
@@ -48,6 +51,9 @@ describe('Роли участников', () => {
       'finance.write',
     ] as const) {
       expect(hasFamilyCapability('child', capability)).toBe(false);
+    }
+    for (const invalid of ['unknown', 'constructor', '__proto__']) {
+      expect(hasFamilyCapability('admin', invalid as FamilyCapability)).toBe(false);
     }
   });
 });
