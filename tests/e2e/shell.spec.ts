@@ -91,7 +91,7 @@ test('регистрация объясняет создание семьи и �
   await page.getByRole('link', { name: 'Как это работает?' }).click();
   await expect(page.getByRole('heading', { name: 'Как работает Family' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Присоединиться к семье' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Войти снова' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Создать семью' })).toBeVisible();
 
   const destination = '/invite/' + 'a'.repeat(32);
   await page.goto(`/register?next=${encodeURIComponent(destination)}`);
