@@ -18,7 +18,11 @@ const result = spawnSync(
     'ON_ERROR_STOP=1',
   ],
   {
-    input: readFileSync(new URL('./verify-phase-two.sql', import.meta.url)),
+    input: Buffer.concat([
+      readFileSync(new URL('./verify-phase-two.sql', import.meta.url)),
+      Buffer.from('\n'),
+      readFileSync(new URL('./verify-shopping-security.sql', import.meta.url)),
+    ]),
     stdio: ['pipe', 'inherit', 'inherit'],
   },
 );

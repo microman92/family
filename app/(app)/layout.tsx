@@ -1,6 +1,7 @@
 import { AppShell } from '@/widgets/app-shell';
 import { createAuthClient, getSupabaseConfig, signOut } from '@/server/auth/index.server';
 import { redirect } from 'next/navigation';
+import { hasFamilyCapability, type FamilyRole } from '@/server/modules/access/domain/capability';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,6 +10,7 @@ export default async function ApplicationLayout({ children }: { children: React.
   let email: string | null = null;
   let familyName: string | null = null;
   let avatarUrl: string | null = null;
+  let canReadFinance = false;
   if (getSupabaseConfig()) {
     const client = await createAuthClient(false);
     const {
@@ -18,12 +20,13 @@ export default async function ApplicationLayout({ children }: { children: React.
     if (error || !user) redirect('/login');
     const { data: membership, error: membershipError } = await client
       .from('family_members')
-      .select('id,family_id')
+      .select('id,family_id,role')
       .eq('user_id', user.id)
       .eq('status', 'active')
       .maybeSingle();
     if (membershipError) throw new Error('Не удалось проверить семейное пространство');
     if (!membership) redirect('/onboarding');
+    canReadFinance = hasFamilyCapability(membership.role as FamilyRole, 'finance.read');
     const { data: family, error: familyError } = await client
       .from('families')
       .select('name')
@@ -51,6 +54,7 @@ export default async function ApplicationLayout({ children }: { children: React.
       signOut={email ? signOut : undefined}
       familyName={familyName}
       avatarUrl={avatarUrl}
+      canReadFinance={canReadFinance}
     >
       {children}
     </AppShell>

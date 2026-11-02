@@ -1,6 +1,8 @@
 import { SectionPage } from '@/_pages/section';
+import { requireFinancePageAccess } from '@/server/access/index.server';
 
 export const metadata = { title: 'Накопления' };
-export default function Page() {
+export default async function Page() {
+  await requireFinancePageAccess();
   return <SectionPage section="goals" />;
 }

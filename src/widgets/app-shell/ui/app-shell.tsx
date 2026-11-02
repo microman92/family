@@ -36,15 +36,20 @@ export function AppShell({
   signOut,
   familyName,
   avatarUrl,
+  canReadFinance = false,
 }: {
   children: React.ReactNode;
   userLabel?: string | null;
   signOut?: () => Promise<void>;
   familyName?: string | null;
   avatarUrl?: string | null;
+  canReadFinance?: boolean;
 }) {
   const pathname = usePathname();
   const [compact, setCompact] = useState(false);
+  const visibleNavigation = navigation.filter(
+    (item) => canReadFinance || (item.href !== '/finance' && item.href !== '/analytics'),
+  );
   const active = (href: string) =>
     pathname === href || (href === '/finance' && pathname.startsWith('/finance/'));
   const navLink = (item: (typeof navigation)[number]) => (
@@ -84,7 +89,7 @@ export function AppShell({
           </span>
         </div>
         <nav className={styles.navigation} aria-label="Основная навигация">
-          {navigation.map(navLink)}
+          {visibleNavigation.map(navLink)}
         </nav>
         <div className={styles.sidebarBottom}>
           <div className={styles.telegramNote}>
@@ -181,7 +186,7 @@ export function AppShell({
         </footer>
       </div>
       <nav className={styles.bottomNav} aria-label="Мобильная навигация">
-        {navigation.slice(0, 3).map(navLink)}
+        {visibleNavigation.slice(0, 3).map(navLink)}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className={styles.moreButton}>
@@ -190,7 +195,7 @@ export function AppShell({
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" side="top">
-            {navigation.slice(3).map((item) => (
+            {visibleNavigation.slice(3).map((item) => (
               <DropdownMenuItem asChild key={item.href}>
                 <Link href={item.href}>
                   <Icon name={item.icon} />

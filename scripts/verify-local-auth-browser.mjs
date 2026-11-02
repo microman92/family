@@ -56,6 +56,7 @@ const server = spawn(
 let browser;
 let messageId;
 let memberId;
+let childId;
 try {
   let ready = false;
   for (let i = 0; i < 90; i++) {
@@ -89,6 +90,55 @@ try {
   await page.getByLabel('Название семьи').fill('Временная проверка');
   await page.getByRole('button', { name: 'Создать семью' }).click();
   await page.waitForURL('**/dashboard');
+  await page.goto(`${origin}/shopping`);
+  await page.getByText('Свои категории').click();
+  await page.getByLabel('Название категории').fill('Тестовая категория');
+  await page.getByRole('button', { name: 'Добавить категорию' }).click();
+  await page
+    .locator('select[name="category"] option')
+    .filter({ hasText: 'Тестовая категория' })
+    .waitFor({ state: 'attached' });
+  await page.getByLabel('Название покупки').fill('Тестовая общая покупка');
+  await page.getByText('Указать подробности').click();
+  await page.locator('select[name="category"]').selectOption({ label: 'Тестовая категория' });
+  await page.getByLabel('Срочность').selectOption('urgent');
+  const assignee = await page
+    .locator('select[name="assigned"] option')
+    .nth(1)
+    .getAttribute('value');
+  if (!assignee) throw new Error('Family assignee is unavailable');
+  await page.locator('select[name="assigned"]').selectOption(assignee);
+  await page.locator('select[name="location"]').first().selectOption('market');
+  await page.getByLabel('Крупная покупка').check();
+  await page.getByRole('button', { name: 'Добавить', exact: true }).click();
+  await page.getByText('Тестовая общая покупка').waitFor();
+  await page.locator('select[name="location"]').last().selectOption('market');
+  await page.getByLabel('Срочные').check();
+  await page.getByLabel('Крупные', { exact: true }).check();
+  await page.getByRole('button', { name: 'Показать', exact: true }).click();
+  await page.getByText('Тестовая общая покупка').waitFor();
+  if ((await page.getByText('Тестовая общая покупка').count()) !== 1)
+    throw new Error('Shopping filters duplicate an item');
+  await page.goto(`${origin}/shopping?scope=family`);
+  await page.getByRole('link', { name: 'Личное', exact: true }).click();
+  await page.getByRole('heading', { name: 'Личный список' }).waitFor();
+  if (await page.getByText('Тестовая общая покупка').count())
+    throw new Error('Shared shopping item shown in private list');
+  await page.getByLabel('Название покупки').fill('Тестовая личная покупка');
+  await page.getByRole('button', { name: 'Добавить', exact: true }).click();
+  await page.getByText('Тестовая личная покупка').waitFor();
+  await page.getByRole('link', { name: 'Общее', exact: true }).click();
+  await page.getByRole('heading', { name: 'Общий список' }).waitFor();
+  if (await page.getByText('Тестовая личная покупка').count())
+    throw new Error('Private shopping item shown in shared list');
+  await page.getByText('Свои категории').click();
+  await page.getByRole('button', { name: 'В архив' }).click();
+  await page.getByRole('button', { name: 'В архив' }).waitFor({ state: 'hidden' });
+  await page.getByText('Изменить название').waitFor();
+  await page.getByText('Изменить название').click();
+  await page.getByLabel('Название', { exact: true }).fill('Изменённая общая покупка');
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await page.getByText('Изменённая общая покупка').waitFor();
   await page.goto(`${origin}/family`);
   await page.getByText('Изменить титул', { exact: true }).first().click();
   await page.locator('select[name="title"]').first().selectOption('king');
@@ -143,6 +193,63 @@ try {
   await page.setViewportSize({ width: 320, height: 800 });
   if (await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth))
     throw new Error('Family page overflows on mobile');
+  const owners = await admin.auth.admin.listUsers();
+  const ownerForChild = owners.data?.users.find((item) => item.email === email);
+  if (owners.error || !ownerForChild || !/^[0-9a-f-]{36}$/i.test(ownerForChild.id))
+    throw new Error('Local test owner unavailable');
+  const childEmail = email.replace('family-browser-', 'family-browser-child-');
+  const child = await admin.auth.admin.createUser({
+    email: childEmail,
+    password: oldPassword,
+    email_confirm: true,
+  });
+  if (child.error || !child.data.user) throw new Error('Local child creation failed');
+  childId = child.data.user.id;
+  if (!/^[0-9a-f-]{36}$/i.test(childId)) throw new Error('Unexpected local child ID');
+  const childMembership = spawnSync(
+    'docker',
+    [
+      'exec',
+      '-i',
+      'supabase_db_family-space',
+      'psql',
+      '-U',
+      'postgres',
+      '-d',
+      'postgres',
+      '-qtAc',
+      `insert into public.family_members (family_id,user_id,role) select id,'${childId}'::uuid,'child' from public.families where created_by='${ownerForChild.id}'::uuid returning id`,
+    ],
+    { encoding: 'utf8' },
+  );
+  if (childMembership.status !== 0 || !/^[0-9a-f-]{36}$/i.test(childMembership.stdout.trim()))
+    throw new Error('Local child membership creation failed');
+  const childPage = await browser.newPage();
+  await childPage.goto(`${origin}/login`);
+  await childPage.getByLabel('Электронная почта').fill(childEmail);
+  await childPage.getByLabel('Пароль', { exact: true }).fill(oldPassword);
+  await childPage.getByRole('button', { name: 'Войти по почте' }).click();
+  await childPage.waitForURL('**/dashboard');
+  if (await childPage.getByRole('link', { name: 'Финансы', exact: true }).count())
+    throw new Error('Child sees finance navigation');
+  if (await childPage.getByRole('link', { name: 'Аналитика', exact: true }).count())
+    throw new Error('Child sees analytics navigation');
+  for (const route of [
+    '/finance',
+    '/finance/transactions',
+    '/finance/budgets',
+    '/finance/debts',
+    '/finance/goals',
+    '/finance/recurring',
+    '/analytics',
+  ]) {
+    await childPage.goto(`${origin}${route}`);
+    await childPage.waitForURL('**/dashboard');
+  }
+  await page.goto(`${origin}/finance`);
+  await page.getByRole('heading', { name: 'Финансы', exact: true }).waitFor();
+  await page.goto(`${origin}/family`);
+  await childPage.close();
   if (!titlesOnly) {
     await page.getByRole('button', { name: 'Покинуть семью' }).click();
     await page.getByRole('button', { name: 'Подтвердить', exact: true }).click();
@@ -248,7 +355,7 @@ try {
   }
   console.log(
     titlesOnly
-      ? 'PASS: browser family title changes for adult and child'
+      ? 'PASS: browser titles and finance access for adult and child'
       : 'PASS: browser signup, family creation, admin actions, member removal, revoked access, login and recovery',
   );
 } finally {
@@ -284,6 +391,10 @@ try {
     if (memberId) {
       const removedMember = await admin.auth.admin.deleteUser(memberId);
       if (removedMember.error) throw new Error('Failed to clean up local test member');
+    }
+    if (childId) {
+      const removedChild = await admin.auth.admin.deleteUser(childId);
+      if (removedChild.error) throw new Error('Failed to clean up local test child');
     }
     if (messageId)
       await fetch(new URL('/api/v1/messages', mail), {

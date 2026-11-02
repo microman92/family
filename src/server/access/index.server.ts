@@ -6,6 +6,7 @@ import {
   type FamilyRole,
 } from '@/server/modules/access/domain/capability';
 import type { Scope } from '@/server/modules/access/domain/scope';
+import { redirect } from 'next/navigation';
 
 export class AccessDeniedError extends Error {
   constructor() {
@@ -62,6 +63,16 @@ export async function requireCurrentFamilyCapability(capability: FamilyCapabilit
     throw new AccessDeniedError();
   }
   return { client, user, familyId: data.family_id, role: data.role as FamilyRole };
+}
+
+/** Check each page request, including client-side navigation after a role change. */
+export async function requireFinancePageAccess() {
+  try {
+    await requireCurrentFamilyCapability('finance.read');
+  } catch (error) {
+    if (!(error instanceof AccessDeniedError)) throw error;
+    redirect('/dashboard');
+  }
 }
 
 /** Private access checks ownership; family access requires both membership and a capability. */

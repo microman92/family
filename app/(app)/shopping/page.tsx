@@ -1,6 +1,4 @@
-import { SectionPage } from '@/_pages/section';
+import { ShoppingPage } from '@/_pages/shopping';
 
 export const metadata = { title: 'Покупки' };
-export default function Page() {
-  return <SectionPage section="shopping" />;
-}
+export default ShoppingPage;

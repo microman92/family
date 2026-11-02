@@ -27,6 +27,7 @@ import {
   getCurrentUser,
   requireCapability,
   requireCurrentFamilyCapability,
+  requireFinancePageAccess,
 } from '@/server/access/index.server';
 import type { Scope } from '@/server/modules/access/domain/scope';
 
@@ -109,5 +110,15 @@ describe('Серверные проверки доступа', () => {
     });
     state.member = { role: 'admin' };
     await expect(requireCurrentFamilyCapability('family.manage')).rejects.toThrow('Access denied');
+  });
+  it('проверяет право на финансы при каждом открытии страницы', async () => {
+    state.member = { role: 'admin', family_id: 'family-a' };
+    await expect(requireFinancePageAccess()).resolves.toBeUndefined();
+    state.member = { role: 'member', family_id: 'family-a' };
+    await expect(requireFinancePageAccess()).resolves.toBeUndefined();
+    state.member = { role: 'child', family_id: 'family-a' };
+    await expect(requireFinancePageAccess()).rejects.toMatchObject({
+      digest: 'NEXT_REDIRECT;replace;/dashboard;307;',
+    });
   });
 });
