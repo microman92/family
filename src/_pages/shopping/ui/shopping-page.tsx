@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ShoppingEditForm } from '@/features/shopping';
 import {
   getCurrentUser,
   requireCurrentFamilyCapability,
@@ -6,11 +7,10 @@ import {
 } from '@/server/access/index.server';
 import {
   addShoppingItem,
-  renameShoppingItem,
   saveShoppingCategory,
   archiveShoppingCategory,
 } from '@/server/shopping/index.server';
-import { Button } from '@/shared/ui';
+import { Button, Icon } from '@/shared/ui';
 import { calculatePlan } from '@/server/modules/shopping/domain/plan';
 import styles from './shopping.module.scss';
 
@@ -48,7 +48,7 @@ export default async function Page({
   let query = client
     .from('shopping_items')
     .select(
-      'id,title,planned_qty,unit,planned_unit_price,priority,location,big_purchase,due_date,assigned_to,version',
+      'id,title,planned_qty,unit,planned_unit_price,priority,location,big_purchase,due_date,assigned_to,category_id,preset_id,version',
     )
     .eq('visibility', selected);
   if (['store', 'market', 'online'].includes(params.location ?? ''))
@@ -248,8 +248,8 @@ export default async function Page({
                       <div>
                         <span>{item.title}</span>
                         <details className={styles.edit}>
-                          <summary>Изменить название</summary>
-                          <form action={renameShoppingItem}>
+                          <summary>Редактировать</summary>
+                          <ShoppingEditForm key={item.version}>
                             <input type="hidden" name="scope" value={selected} />
                             <input type="hidden" name="id" value={item.id} />
                             <input type="hidden" name="version" value={item.version} />
@@ -262,10 +262,122 @@ export default async function Page({
                                 required
                               />
                             </label>
+                            <label>
+                              Количество
+                              <input
+                                name="qty"
+                                type="number"
+                                min="0.001"
+                                max="999999999"
+                                step="0.001"
+                                defaultValue={item.planned_qty}
+                                required
+                              />
+                            </label>
+                            <label>
+                              Единица
+                              <input name="unit" maxLength={24} defaultValue={item.unit} required />
+                            </label>
+                            <label>
+                              Цена за единицу, сум
+                              <input
+                                name="price"
+                                type="number"
+                                min="0"
+                                max="999999999999"
+                                step="1"
+                                defaultValue={item.planned_unit_price ?? ''}
+                              />
+                            </label>
+                            <label>
+                              Категория
+                              <select
+                                name="category"
+                                defaultValue={
+                                  item.category_id
+                                    ? `custom:${item.category_id}`
+                                    : item.preset_id
+                                      ? `preset:${item.preset_id}`
+                                      : ''
+                                }
+                              >
+                                <option value="">Без категории</option>
+                                {presets?.map((preset) => (
+                                  <option key={preset.id} value={`preset:${preset.id}`}>
+                                    {preset.name}
+                                  </option>
+                                ))}
+                                {categories?.map((category) => (
+                                  <option key={category.id} value={`custom:${category.id}`}>
+                                    {category.name}
+                                  </option>
+                                ))}
+                                {item.category_id &&
+                                  !categories?.some(
+                                    (category) => category.id === item.category_id,
+                                  ) && (
+                                    <option value={`custom:${item.category_id}`}>
+                                      Архивная категория
+                                    </option>
+                                  )}
+                              </select>
+                            </label>
+                            <label>
+                              Срочность
+                              <select name="priority" defaultValue={item.priority}>
+                                <option value="normal">Обычная</option>
+                                <option value="urgent">Срочно</option>
+                              </select>
+                            </label>
+                            <label>
+                              Место
+                              <select name="location" defaultValue={item.location ?? ''}>
+                                <option value="">Не указано</option>
+                                <option value="store">Магазин</option>
+                                <option value="market">Базар</option>
+                                <option value="online">Онлайн</option>
+                              </select>
+                            </label>
+                            <label>
+                              Дата
+                              <input name="due" type="date" defaultValue={item.due_date ?? ''} />
+                            </label>
+                            {selected === 'family' && (
+                              <label>
+                                Ответственный
+                                <select name="assigned" defaultValue={item.assigned_to ?? ''}>
+                                  <option value="">Не назначен</option>
+                                  {members?.map(
+                                    (member: { member_id: string; display_name: string }) => (
+                                      <option key={member.member_id} value={member.member_id}>
+                                        {member.display_name}
+                                      </option>
+                                    ),
+                                  )}
+                                  {item.assigned_to &&
+                                    !members?.some(
+                                      (member: { member_id: string }) =>
+                                        member.member_id === item.assigned_to,
+                                    ) && (
+                                      <option value={item.assigned_to} disabled>
+                                        Участник недоступен — выберите другого
+                                      </option>
+                                    )}
+                                </select>
+                              </label>
+                            )}
+                            <label>
+                              <input
+                                name="big"
+                                type="checkbox"
+                                defaultChecked={item.big_purchase}
+                              />{' '}
+                              Крупная покупка
+                            </label>
                             <Button type="submit" variant="outline">
                               Сохранить
                             </Button>
-                          </form>
+                          </ShoppingEditForm>
                         </details>
                       </div>
                       <small>
@@ -318,6 +430,19 @@ export default async function Page({
             </form>
             {categories?.map((category) => (
               <div key={category.id} className={styles.categoryRow}>
+                <span className={styles.categoryIcon}>
+                  <span style={{ color: category.color ?? undefined }}>
+                    <Icon
+                      name={
+                        (['shopping', 'home', 'notes', 'goal'].includes(category.icon)
+                          ? category.icon
+                          : 'shopping') as 'shopping' | 'home' | 'notes' | 'goal'
+                      }
+                      size={18}
+                    />
+                  </span>
+                  {category.name}
+                </span>
                 <form action={saveShoppingCategory}>
                   <input type="hidden" name="scope" value={selected} />
                   <input type="hidden" name="id" value={category.id} />

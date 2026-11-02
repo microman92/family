@@ -1,6 +1,6 @@
 export {
   addShoppingItem,
-  renameShoppingItem,
+  updateShoppingItem,
   saveShoppingCategory,
   archiveShoppingCategory,
 } from './actions';

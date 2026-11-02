@@ -1,0 +1,10 @@
+.error {
+  width: 100%;
+  color: var(--destructive);
+  font-size: 13px;
+  button {
+    color: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+}

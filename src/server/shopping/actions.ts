@@ -5,12 +5,10 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { getCurrentUser, requireCurrentFamilyCapability } from '@/server/access/index.server';
 
-export async function addShoppingItem(form: FormData) {
-  const scope = form.get('scope') === 'private' ? 'private' : 'family';
-  const title = z.string().trim().min(1).max(200).safeParse(form.get('title'));
-  if (!title.success) redirect(`/shopping?scope=${scope}&error=title`);
+function parseShoppingFields(form: FormData) {
   const fields = z
     .object({
+      title: z.string().trim().min(1).max(200),
       qty: z
         .string()
         .regex(/^(?:[0-9]{1,9})(?:\.[0-9]{1,3})?$/)
@@ -24,6 +22,7 @@ export async function addShoppingItem(form: FormData) {
       assigned: z.union([z.literal(''), z.uuid()]),
     })
     .safeParse({
+      title: form.get('title'),
       qty: form.get('qty') || '1',
       unit: form.get('unit') || 'шт',
       price: form.get('price') || '',
@@ -33,14 +32,9 @@ export async function addShoppingItem(form: FormData) {
       due: form.get('due') || '',
       assigned: form.get('assigned') || '',
     });
-  if (!fields.success) redirect(`/shopping?scope=${scope}&error=fields`);
-  const { client, user } = await getCurrentUser();
-  const family = scope === 'family' ? await requireCurrentFamilyCapability('members.read') : null;
-  const { error } = await client.from('shopping_items').insert({
-    visibility: scope,
-    family_id: family?.familyId ?? null,
-    owner_user_id: scope === 'private' ? user.id : null,
-    title: title.data,
+  if (!fields.success) return null;
+  return {
+    title: fields.data.title,
     planned_qty: fields.data.qty,
     unit: fields.data.unit,
     planned_unit_price: fields.data.price || null,
@@ -51,27 +45,43 @@ export async function addShoppingItem(form: FormData) {
     due_date: fields.data.due || null,
     assigned_to: fields.data.assigned || null,
     big_purchase: form.get('big') === 'on',
+  };
+}
+
+export async function addShoppingItem(form: FormData) {
+  const scope = form.get('scope') === 'private' ? 'private' : 'family';
+  const fields = parseShoppingFields(form);
+  if (!fields) redirect(`/shopping?scope=${scope}&error=fields`);
+  const { client, user } = await getCurrentUser();
+  const family = scope === 'family' ? await requireCurrentFamilyCapability('members.read') : null;
+  const { error } = await client.from('shopping_items').insert({
+    visibility: scope,
+    family_id: family?.familyId ?? null,
+    owner_user_id: scope === 'private' ? user.id : null,
+    ...fields,
   });
   if (error) redirect(`/shopping?scope=${scope}&error=save`);
   revalidatePath('/shopping');
   redirect(`/shopping?scope=${scope}`);
 }
 
-export async function renameShoppingItem(form: FormData) {
+export async function updateShoppingItem(
+  form: FormData,
+): Promise<'updated' | 'invalid' | 'conflict' | 'error'> {
   const scope = form.get('scope') === 'private' ? 'private' : 'family';
   const fields = z
     .object({
       id: z.uuid(),
-      title: z.string().trim().min(1).max(200),
       version: z.coerce.number().int().positive().max(2147483646),
     })
-    .safeParse({ id: form.get('id'), title: form.get('title'), version: form.get('version') });
-  if (!fields.success) redirect(`/shopping?scope=${scope}&error=fields`);
+    .safeParse({ id: form.get('id'), version: form.get('version') });
+  const item = parseShoppingFields(form);
+  if (!fields.success || !item) return 'invalid';
   const { client, user } = await getCurrentUser();
   const family = scope === 'family' ? await requireCurrentFamilyCapability('members.read') : null;
   let query = client
     .from('shopping_items')
-    .update({ title: fields.data.title, version: fields.data.version + 1 })
+    .update({ ...item, version: fields.data.version + 1 })
     .eq('id', fields.data.id)
     .eq('version', fields.data.version)
     .eq('visibility', scope);
@@ -80,10 +90,10 @@ export async function renameShoppingItem(form: FormData) {
       ? query.eq('family_id', family!.familyId)
       : query.eq('owner_user_id', user.id);
   const { data, error } = await query.select('id').maybeSingle();
-  if (error) redirect(`/shopping?scope=${scope}&error=save`);
-  if (!data) redirect(`/shopping?scope=${scope}&error=conflict`);
+  if (error) return 'error';
+  if (!data) return 'conflict';
   revalidatePath('/shopping');
-  redirect(`/shopping?scope=${scope}`);
+  return 'updated';
 }
 
 export async function saveShoppingCategory(form: FormData) {

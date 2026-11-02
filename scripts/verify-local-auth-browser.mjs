@@ -3,6 +3,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { chromium } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 import { createClient } from '@supabase/supabase-js';
 
 const local = (url) => url && ['127.0.0.1', 'localhost'].includes(new URL(url).hostname);
@@ -57,6 +58,7 @@ let browser;
 let messageId;
 let memberId;
 let childId;
+let shoppingMemberId;
 try {
   let ready = false;
   for (let i = 0; i < 90; i++) {
@@ -73,7 +75,8 @@ try {
   }
   if (!ready) throw new Error('Local application start timed out');
   browser = await chromium.launch(process.platform === 'win32' ? { channel: 'chrome' } : {});
-  const page = await browser.newPage();
+  const context = await browser.newContext();
+  const page = await context.newPage();
   for (const route of ['/dashboard', '/family', '/settings', '/onboarding']) {
     await page.goto(`${origin}${route}`);
     if (new URL(page.url()).pathname !== '/login') throw new Error(`Guest accessed ${route}`);
@@ -98,9 +101,16 @@ try {
     .locator('select[name="category"] option')
     .filter({ hasText: 'Тестовая категория' })
     .waitFor({ state: 'attached' });
+  await page.getByText('Свои категории').click();
+  await page.getByLabel('Название категории').last().fill('Изменённая категория');
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await page
+    .locator('select[name="category"] option')
+    .filter({ hasText: 'Изменённая категория' })
+    .waitFor({ state: 'attached' });
   await page.getByLabel('Название покупки').fill('Тестовая общая покупка');
   await page.getByText('Указать подробности').click();
-  await page.locator('select[name="category"]').selectOption({ label: 'Тестовая категория' });
+  await page.locator('select[name="category"]').selectOption({ label: 'Изменённая категория' });
   await page.getByLabel('Срочность').selectOption('urgent');
   const assignee = await page
     .locator('select[name="assigned"] option')
@@ -112,7 +122,7 @@ try {
   await page.getByLabel('Крупная покупка').check();
   await page.getByRole('button', { name: 'Добавить', exact: true }).click();
   await page.getByText('Тестовая общая покупка').waitFor();
-  await page.locator('select[name="location"]').last().selectOption('market');
+  await page.locator('form[action="/shopping"] select[name="location"]').selectOption('market');
   await page.getByLabel('Срочные').check();
   await page.getByLabel('Крупные', { exact: true }).check();
   await page.getByRole('button', { name: 'Показать', exact: true }).click();
@@ -134,11 +144,24 @@ try {
   await page.getByText('Свои категории').click();
   await page.getByRole('button', { name: 'В архив' }).click();
   await page.getByRole('button', { name: 'В архив' }).waitFor({ state: 'hidden' });
-  await page.getByText('Изменить название').waitFor();
-  await page.getByText('Изменить название').click();
+  await page.getByText('Редактировать').waitFor();
+  await page.getByText('Редактировать').click();
   await page.getByLabel('Название', { exact: true }).fill('Изменённая общая покупка');
+  const editForm = page
+    .locator('form')
+    .filter({ has: page.getByLabel('Название', { exact: true }) });
+  await editForm.locator('input[name="qty"]').fill('2.5');
+  await editForm.locator('input[name="price"]').fill('12000');
+  const editResponse = page.waitForResponse(
+    (response) =>
+      response.url().includes('/api/shopping/item') && response.request().method() === 'POST',
+  );
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  const saved = await editResponse;
+  if (saved.status() !== 200)
+    throw new Error(`Shopping update returned ${saved.status()}: ${await saved.text()}`);
   await page.getByText('Изменённая общая покупка').waitFor();
+  await page.getByText('Известная сумма: 30 000 сум').waitFor();
   await page.goto(`${origin}/family`);
   await page.getByText('Изменить титул', { exact: true }).first().click();
   await page.locator('select[name="title"]').first().selectOption('king');
@@ -250,6 +273,108 @@ try {
   await page.getByRole('heading', { name: 'Финансы', exact: true }).waitFor();
   await page.goto(`${origin}/family`);
   await childPage.close();
+  const shoppingEmail = email.replace('family-browser-', 'family-browser-shopping-');
+  const shoppingMember = await admin.auth.admin.createUser({
+    email: shoppingEmail,
+    password: oldPassword,
+    email_confirm: true,
+  });
+  if (shoppingMember.error || !shoppingMember.data.user)
+    throw new Error('Shopping test member creation failed');
+  shoppingMemberId = shoppingMember.data.user.id;
+  if (!/^[0-9a-f-]{36}$/i.test(shoppingMemberId)) throw new Error('Unexpected shopping member ID');
+  const shoppingMembership = spawnSync(
+    'docker',
+    [
+      'exec',
+      '-i',
+      'supabase_db_family-space',
+      'psql',
+      '-U',
+      'postgres',
+      '-d',
+      'postgres',
+      '-qtAc',
+      `insert into public.family_members (family_id,user_id,role) select id,'${shoppingMemberId}'::uuid,'member' from public.families where created_by='${ownerForChild.id}'::uuid returning id`,
+    ],
+    { encoding: 'utf8' },
+  );
+  if (shoppingMembership.status !== 0 || !/^[0-9a-f-]{36}$/i.test(shoppingMembership.stdout.trim()))
+    throw new Error('Shopping test membership creation failed');
+  const memberPage = await browser.newPage();
+  await memberPage.goto(`${origin}/login`);
+  await memberPage.getByLabel('Электронная почта').fill(shoppingEmail);
+  await memberPage.getByLabel('Пароль', { exact: true }).fill(oldPassword);
+  await memberPage.getByRole('button', { name: 'Войти по почте' }).click();
+  await memberPage.waitForURL('**/dashboard');
+  await memberPage.goto(`${origin}/shopping`);
+  await memberPage.getByText('Изменённая общая покупка').waitFor();
+  if (await memberPage.getByText('Тестовая личная покупка').count())
+    throw new Error('Member sees another user private item');
+  await memberPage.getByRole('link', { name: 'Личное' }).click();
+  await memberPage.getByRole('heading', { name: 'Личный список' }).waitFor();
+  if (await memberPage.getByText('Тестовая личная покупка').count())
+    throw new Error('Member sees another user private list');
+  await memberPage.getByRole('link', { name: 'Общее' }).click();
+  await memberPage.getByRole('heading', { name: 'Общий список' }).waitFor();
+  await page.goto(`${origin}/shopping`);
+  await page.getByText('Редактировать').click();
+  await memberPage.getByText('Редактировать').click();
+  await memberPage.getByLabel('Название', { exact: true }).fill('Изменение участника');
+  await memberPage.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await memberPage.getByText('Изменение участника').waitFor();
+  await page.getByLabel('Название', { exact: true }).fill('Устаревшее изменение');
+  const conflictResponse = page.waitForResponse(
+    (response) =>
+      response.url().includes('/api/shopping/item') && response.request().method() === 'POST',
+  );
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  if ((await conflictResponse).status() !== 409) throw new Error('Stale update did not return 409');
+  await page.getByRole('alert').filter({ hasText: 'Покупка изменилась' }).waitFor();
+  await page.getByRole('button', { name: 'Обновить список' }).click();
+  await page.getByText('Изменение участника').waitFor();
+  await page.setViewportSize({ width: 320, height: 800 });
+  await page.getByText('Редактировать').click();
+  const overflowing = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('*'))
+      .filter((element) => element.getBoundingClientRect().right > window.innerWidth + 1)
+      .map((element) => element.tagName + ':' + element.className)
+      .slice(0, 8),
+  );
+  if (await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth))
+    throw new Error(`Shopping edit form overflows on mobile: ${overflowing.join(', ')}`);
+  const accessibility = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+    .analyze();
+  if (accessibility.violations.length)
+    throw new Error(
+      `Shopping accessibility violations: ${accessibility.violations.map((v) => v.id).join(', ')}`,
+    );
+  await page.getByText('Редактировать').focus();
+  await page.keyboard.press('Enter');
+  const removeShoppingMember = spawnSync(
+    'docker',
+    [
+      'exec',
+      '-i',
+      'supabase_db_family-space',
+      'psql',
+      '-U',
+      'postgres',
+      '-d',
+      'postgres',
+      '-v',
+      'ON_ERROR_STOP=1',
+      '-c',
+      `update public.family_members set status='removed' where user_id='${shoppingMemberId}'::uuid`,
+    ],
+    { stdio: 'ignore' },
+  );
+  if (removeShoppingMember.status !== 0) throw new Error('Could not remove shopping member');
+  await memberPage.goto(`${origin}/shopping`);
+  await memberPage.waitForURL('**/onboarding');
+  await memberPage.close();
+  await page.goto(`${origin}/family`);
   if (!titlesOnly) {
     await page.getByRole('button', { name: 'Покинуть семью' }).click();
     await page.getByRole('button', { name: 'Подтвердить', exact: true }).click();
@@ -355,7 +480,7 @@ try {
   }
   console.log(
     titlesOnly
-      ? 'PASS: browser titles and finance access for adult and child'
+      ? 'PASS: browser shopping, two-user isolation, conflict, accessibility and family roles'
       : 'PASS: browser signup, family creation, admin actions, member removal, revoked access, login and recovery',
   );
 } finally {
@@ -395,6 +520,10 @@ try {
     if (childId) {
       const removedChild = await admin.auth.admin.deleteUser(childId);
       if (removedChild.error) throw new Error('Failed to clean up local test child');
+    }
+    if (shoppingMemberId) {
+      const removed = await admin.auth.admin.deleteUser(shoppingMemberId);
+      if (removed.error) throw new Error('Failed to clean up shopping test member');
     }
     if (messageId)
       await fetch(new URL('/api/v1/messages', mail), {
