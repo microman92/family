@@ -1546,10 +1546,10 @@ Gate: PASS/FAIL
 <p>Прогресс 03.11.2026: добавлены локальные миграции и системные категории, общий и личный список, быстрый ввод, параметры и фильтры, пользовательские категории и изменение названия с проверкой версии. SQL-тесты на реальных таблицах проверяют изоляцию двух семей и личных записей, отзыв доступа и запрет чужих связей. Переход до Gate 3 согласован пользователем и описан в <a href="docs/adr/003-phase-four-before-gate-three.md">ADR</a>. Миграции применены только локально. Полное редактирование всех полей, отдельная приёмка двух пользователей, проверки доступности и публикация ещё не завершены; Gate 4 не пройден.</p>
 <h3>Задачи</h3>
 <ul>
-<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/><strong>T-034</strong> Создать миграции shopping categories/items и scope-safe связи.</li>
-<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/><strong>T-035</strong> Добавить системные категории: продукты, уборка, одежда, животные и пр..</li>
+<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" checked disabled/><strong>T-034</strong> Создать миграции shopping categories/items и scope-safe связи.</li>
+<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" checked disabled/><strong>T-035</strong> Добавить системные категории: продукты, уборка, одежда, животные и пр..</li>
 <li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/><strong>T-036</strong> Добавить CRUD пользовательских категорий с архивированием и иконками.</li>
-<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/><strong>T-037</strong> Реализовать quick-add item: только название обязательно.</li>
+<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" checked disabled/><strong>T-037</strong> Реализовать quick-add item: только название обязательно.</li>
 <li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/><strong>T-038</strong> Добавить количество и единицу, плановую цену, приоритет, метку крупной покупки, due date.</li>
 <li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/><strong>T-039</strong> Добавить место <code>магазин/базар/онлайн</code> и независимые фильтры/сортировки.</li>
 <li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/><strong>T-040</strong> Сделать вкладки «Общее/Личное» с server-filtering и сохранением фильтра.</li>
@@ -1564,7 +1564,7 @@ Gate: PASS/FAIL
 <li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" checked disabled/>В браузере проверены быстрое добавление, разделение общего и личного списков, совместная работа фильтров, создание и архивирование категории, назначение участника и изменение названия.</li>
 <li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" checked disabled/>Расчёт известной суммы и обработка неизвестной цены проверены unit-тестами; всего прошли 68 unit-тестов, проверка типов, линтер и форматирование.</li>
 </ul>
-<p>Основные задачи выше пока остаются открытыми по Definition of Done: изменения не закоммичены и не опубликованы. Дополнительно для T-043 необходимо редактирование остальных полей и обработка конфликта; для T-044 — браузерная проверка с двумя пользователями. Gate 4 не закрыт.</p>
+<p>Изменения сохранены в Git и отправлены на GitHub; миграции пока не применены к рабочей базе. Для T-043 необходимо редактирование остальных полей и проверка конфликтов; для T-044 — браузерная проверка с двумя пользователями. Gate 4 не закрыт.</p>
 <p><strong>Проверка перед переходом:</strong></p>
 <ul>
 <li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/><code>Gate 4</code> подтверждён тестами и кратким отчётом.</li>
