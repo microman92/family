@@ -1599,6 +1599,7 @@ Gate: PASS/FAIL
 <li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/><strong>T-055</strong> Реализовать UI покупки/корректировки/возврата с pending/success/error.</li>
 <li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/><strong>T-056</strong> Проверить atomic rollback, exact balances, reversed event и RLS integration.</li>
 </ul>
+<p>Дополнение 03.11.2026: подготовлена следующая миграция с созданием системных счетов и атомарным расходом. Счета создаются при первом запросе отдельно для семьи или владельца. Повторный request_id возвращает существующий расход при совпадении параметров. SQL-тесты в локальной Supabase проверили остаток 70 000 после расхода 30 000 из 100 000, отказ при недостатке средств, запрет доступа другой семье и к чужому личному счёту, откат после искусственного сбоя аудита. Добавлен серверный PostExpense через порт репозитория. Отрицательный остаток запрещён. Миграция применена к рабочей Supabase. В рабочей базе повторно проверены остаток, идемпотентность, ограничения доступа и полный откат при сбое аудита с откатом тестовых данных. Отдельная конкурентная проверка двух запросов и UI остаются открытыми.</p>
 <p><strong>Проверка перед переходом:</strong></p>
 <ul>
 <li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/><code>Gate 5</code> подтверждён тестами и кратким отчётом.</li>

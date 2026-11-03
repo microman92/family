@@ -32,6 +32,9 @@ describe('Финансовая схема: изоляция и запрет пр
     await db.exec(
       await readFile('supabase/migrations/20261103072538_finance_ledger_foundation.sql', 'utf8'),
     );
+    await db.exec(
+      await readFile('supabase/migrations/20261103093135_finance_expense_posting.sql', 'utf8'),
+    );
   });
   afterAll(async () => {
     await db?.close();
@@ -40,6 +43,7 @@ describe('Финансовая схема: изоляция и запрет пр
     await db.exec('begin');
     try {
       await db.exec(await readFile('scripts/verify-finance-foundation.sql', 'utf8'));
+      await db.exec(await readFile('scripts/verify-finance-expense.sql', 'utf8'));
     } finally {
       await db.exec('rollback');
     }
