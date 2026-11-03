@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Providers } from '@/_app';
 import { getPublicEnvironment } from '@/_app/index.server';
 import '@/_app/styles/tailwind.css';
@@ -6,6 +6,13 @@ import '@fontsource-variable/onest';
 import '@/_app/styles/globals.scss';
 
 const environment = getPublicEnvironment();
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  interactiveWidget: 'resizes-content',
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(environment.appUrl),

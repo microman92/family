@@ -1,12 +1,15 @@
 .wrapper {
+  min-width: 0;
   display: grid;
   gap: 20px;
 }
 .form {
+  min-width: 0;
   display: grid;
   gap: 16px;
 }
 .field {
+  min-width: 0;
   display: grid;
   gap: 7px;
   label {

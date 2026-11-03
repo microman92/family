@@ -1,5 +1,6 @@
 .page {
   display: grid;
+  min-width: 0;
   gap: 24px;
   max-width: 820px;
   header h1 {
@@ -9,9 +10,11 @@
   header p {
     margin: 0;
     color: var(--muted-foreground);
+    overflow-wrap: anywhere;
   }
 }
 .panel {
+  min-width: 0;
   padding: 24px;
   background: var(--card);
   border: 1px solid var(--border);
@@ -42,5 +45,64 @@
     display: block;
     color: var(--muted-foreground);
     font-size: 12px;
+  }
+  li > * {
+    min-width: 0;
+  }
+  span {
+    overflow-wrap: anywhere;
+  }
+  li.memberRow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto;
+    align-items: start;
+    gap: 20px;
+    padding-block: 20px;
+  }
+}
+.memberIdentity {
+  display: grid;
+  gap: 5px;
+  padding-top: 8px;
+  font-weight: 600;
+  small {
+    font-weight: 400;
+  }
+}
+.memberActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 12px;
+}
+.memberRemove {
+  grid-column: 3;
+}
+@media (max-width: 1100px) {
+  .list li.memberRow {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 16px;
+  }
+  .memberActions {
+    grid-row: 2;
+    grid-column: 1 / -1;
+  }
+  .memberRemove {
+    grid-column: 2;
+  }
+}
+@media (max-width: 600px) {
+  .panel {
+    padding: 20px 16px;
+  }
+  .list li.memberRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .memberActions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .memberRemove {
+    grid-column: 1;
+    grid-row: 3;
   }
 }

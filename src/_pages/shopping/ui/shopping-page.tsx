@@ -102,7 +102,7 @@ export default async function Page({
             <form action={addShoppingItem} className={styles.add}>
               <input type="hidden" name="scope" value={selected} />
               <label htmlFor="shopping-title">Название покупки</label>
-              <div>
+              <div className={styles.quickAdd}>
                 <input
                   id="shopping-title"
                   name="title"
@@ -218,7 +218,7 @@ export default async function Page({
                   <option value="due">По дате</option>
                 </select>
               </label>
-              <label>
+              <label className={styles.checkbox}>
                 <input
                   type="checkbox"
                   name="urgent"
@@ -227,7 +227,7 @@ export default async function Page({
                 />{' '}
                 Срочные
               </label>
-              <label>
+              <label className={styles.checkbox}>
                 <input type="checkbox" name="big" value="1" defaultChecked={params.big === '1'} />{' '}
                 Крупные
               </label>
@@ -246,7 +246,7 @@ export default async function Page({
                   {items.map((item) => (
                     <li key={item.id}>
                       <div>
-                        <span>{item.title}</span>
+                        <span className={styles.itemTitle}>{item.title}</span>
                         <details className={styles.edit}>
                           <summary>Редактировать</summary>
                           <ShoppingEditForm key={item.version}>
@@ -366,7 +366,7 @@ export default async function Page({
                                 </select>
                               </label>
                             )}
-                            <label>
+                            <label className={styles.checkbox}>
                               <input
                                 name="big"
                                 type="checkbox"
@@ -380,7 +380,7 @@ export default async function Page({
                           </ShoppingEditForm>
                         </details>
                       </div>
-                      <small>
+                      <small className={styles.itemMeta}>
                         {item.planned_qty} {item.unit} ·{' '}
                         {item.planned_unit_price === null
                           ? 'Цена не указана'

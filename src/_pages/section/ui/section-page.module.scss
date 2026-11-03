@@ -1,5 +1,6 @@
 .page {
   display: grid;
+  min-width: 0;
   gap: 24px;
 }
 .heading {
@@ -30,13 +31,19 @@
     border-radius: 8px;
     color: var(--muted-foreground);
     text-decoration: none;
-    &:hover {
-      background: var(--secondary);
-    }
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    touch-action: manipulation;
   }
   a.selected {
     background: var(--accent);
     color: var(--primary);
     font-weight: 600;
+  }
+}
+@media (hover: hover) and (pointer: fine) {
+  .tabs a:hover {
+    background: var(--secondary);
   }
 }

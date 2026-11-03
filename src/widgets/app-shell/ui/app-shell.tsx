@@ -149,8 +149,10 @@ export function AppShell({
                       <Icon name="family" size={17} />
                     )}
                   </span>
-                  <span className={styles.userLabel}>{userLabel ?? 'Гость'}</span>
-                  <ChevronDown size={14} aria-hidden="true" />
+                  <span className={styles.userLabel} title={userLabel ?? 'Гость'}>
+                    {userLabel ?? 'Гость'}
+                  </span>
+                  <ChevronDown className={styles.userChevron} size={14} aria-hidden="true" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">

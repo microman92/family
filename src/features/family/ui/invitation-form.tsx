@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
+import { Check, Copy } from 'lucide-react';
 import { Button, Input } from '@/shared/ui';
 import type { InviteState, AuthState } from '@/shared/lib/auth';
 import styles from './invitation-form.module.scss';
@@ -14,6 +15,19 @@ export function InvitationForm({
   enabled: boolean;
 }) {
   const [state, submit, pending] = useActionState(action, {});
+  const invitationInput = useRef<HTMLInputElement>(null);
+  const [copyFeedback, setCopyFeedback] = useState<{ url: string; copied: boolean } | null>(null);
+  async function copyInvitation() {
+    if (!state.url) return;
+    try {
+      await navigator.clipboard.writeText(state.url);
+      setCopyFeedback({ url: state.url, copied: true });
+    } catch {
+      invitationInput.current?.focus();
+      invitationInput.current?.select();
+      setCopyFeedback({ url: state.url, copied: false });
+    }
+  }
   return (
     <section className={styles.panel}>
       <h2>Пригласить участника</h2>
@@ -40,10 +54,24 @@ export function InvitationForm({
           <label htmlFor="invite-url">Ссылка на бота</label>
           <input
             id="invite-url"
+            ref={invitationInput}
             value={state.url}
             readOnly
             onFocus={(event) => event.currentTarget.select()}
           />
+          <div className={styles.copyRow}>
+            <Button type="button" variant="outline" onClick={copyInvitation}>
+              {copyFeedback?.url === state.url && copyFeedback.copied ? <Check /> : <Copy />}
+              Скопировать ссылку
+            </Button>
+            {copyFeedback?.url === state.url && (
+              <p role="status">
+                {copyFeedback.copied
+                  ? 'Ссылка скопирована.'
+                  : 'Выделили ссылку. Скопируйте её вручную.'}
+              </p>
+            )}
+          </div>
           <p>Сохраните ссылку сейчас: после закрытия она не отображается повторно.</p>
         </div>
       )}

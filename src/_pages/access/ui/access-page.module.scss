@@ -17,6 +17,7 @@
   margin-bottom: 36px;
 }
 .card {
+  min-width: 0;
   width: 100%;
   max-width: 430px;
   background: var(--card);
@@ -29,6 +30,7 @@
     line-height: 1.2;
     letter-spacing: -0.7px;
     font-weight: 650;
+    overflow-wrap: anywhere;
   }
   > p {
     color: var(--muted-foreground);
@@ -63,6 +65,7 @@
   margin-top: 25px;
   a {
     text-underline-offset: 4px;
+    padding-block: 8px;
   }
 }
 .card > .helpLink {

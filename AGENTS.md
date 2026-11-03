@@ -18,6 +18,18 @@
 
 Правила SCSS Modules/shadcn из этого файла имеют приоритет над Tailwind-default навыка. Текущий акцент по выбору пользователя — бургунди; светлая и тёмная темы используют общие семантические токены. Обоснование и результаты проверки — `docs/taste-audit.md`.
 
+## Подключённые навыки
+
+- `.agents/skills/karpathy-guidelines/SKILL.md` — проверяемые изменения в рамках задачи, без лишних абстракций.
+- `.agents/skills/anti-ai-slop/SKILL.md` — конкретные тексты, читаемый код и краткие отчёты.
+- `.agents/skills/frontend-design/SKILL.md` — иерархия, типографика и согласованность интерфейса вместе с Taste.
+- `.agents/skills/emil-design-eng/SKILL.md` — детали контролов и обратная связь.
+- `.agents/skills/mobile-native/SKILL.md` — touch, safe area, мобильные поля и состояния наведения.
+- `.agents/skills/break-ui/SKILL.md` — проверка длинных значений и крайних состояний на временных локальных данных.
+- `.agents/skills/find-animation-opportunities/SKILL.md`, `animate/SKILL.md`, `review-animations/SKILL.md` и `animation-performance/SKILL.md` в той же папке — обоснованное движение, его проверка и производительность.
+
+Веб-навыки Emil Kowalski установлены из `https://github.com/emilkowalski/skills`. Применяй навыки по задаче. Для Family приоритетны доступность, SCSS Modules/shadcn и существующие токены. Проверочные данные не должны попадать в рабочие семьи. Движение должно учитывать `prefers-reduced-motion`; hover-эффекты ограничиваются устройствами с точным указателем и поддержкой hover. Проверку на физическом телефоне фиксируй отдельно от браузерной эмуляции.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 ## This is NOT the Next.js you know

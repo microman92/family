@@ -76,31 +76,35 @@ export function FamilyPage({
         <h2>Участники</h2>
         <ul className={styles.list}>
           {members.map((member) => (
-            <li key={member.member_id}>
-              <span>{member.display_name}</span>
-              <small>{member.title ? titles[member.title] : 'Титул не выбран'}</small>
+            <li key={member.member_id} className={styles.memberRow}>
+              <div className={styles.memberIdentity}>
+                <span>{member.display_name}</span>
+                <small>{member.title ? titles[member.title] : 'Титул не выбран'}</small>
+              </div>
               {isAdmin && (
-                <FamilyTitleForm
-                  key={`${member.role}:${member.title ?? 'none'}`}
-                  name={member.display_name}
-                  child={member.role === 'child'}
-                  title={member.title}
-                  action={setFamilyTitle.bind(null, member.member_id, 'member')}
-                />
-              )}
-              {isAdmin && (
-                <MemberRoleForm
-                  key={member.role}
-                  name={member.display_name}
-                  role={member.role}
-                  action={changeMemberRole.bind(null, member.member_id)}
-                />
+                <div className={styles.memberActions}>
+                  <FamilyTitleForm
+                    key={`${member.role}:${member.title ?? 'none'}`}
+                    name={member.display_name}
+                    child={member.role === 'child'}
+                    title={member.title}
+                    action={setFamilyTitle.bind(null, member.member_id, 'member')}
+                  />
+                  <MemberRoleForm
+                    key={member.role}
+                    name={member.display_name}
+                    role={member.role}
+                    action={changeMemberRole.bind(null, member.member_id)}
+                  />
+                </div>
               )}
               {(isAdmin || member.user_id === currentUser) && (
-                <RemoveMember
-                  self={member.user_id === currentUser}
-                  action={removeMember.bind(null, member.member_id)}
-                />
+                <div className={styles.memberRemove}>
+                  <RemoveMember
+                    self={member.user_id === currentUser}
+                    action={removeMember.bind(null, member.member_id)}
+                  />
+                </div>
               )}
             </li>
           ))}
