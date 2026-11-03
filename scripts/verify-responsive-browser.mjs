@@ -158,8 +158,14 @@ try {
   const replay = await context.request.fetch(firstRequest);
   if (!replay.ok()) throw new Error('Repeated position request failed');
   await stepper.getByLabel('Название покупки').fill('Молоко');
-  if ((await stepper.getByLabel('Единица', { exact: true }).inputValue()) !== 'шт')
+  if ((await stepper.getByLabel('Единица', { exact: true }).inputValue()) !== 'л')
     throw new Error('Next position did not reset the unit');
+  await stepper.getByLabel('Название покупки').fill('Подсолнечное масло');
+  if ((await stepper.getByLabel('Единица', { exact: true }).inputValue()) !== 'л')
+    throw new Error('Sunflower oil did not suggest litres');
+  await stepper.getByLabel('Название покупки').fill('Яйца');
+  if ((await stepper.getByLabel('Единица', { exact: true }).inputValue()) !== 'шт')
+    throw new Error('Eggs did not suggest pieces');
   await stepper.getByLabel('Единица', { exact: true }).fill('упак');
   await stepper.getByLabel('Название покупки').fill('Молоко пастеризованное');
   if ((await stepper.getByLabel('Единица', { exact: true }).inputValue()) !== 'упак')
