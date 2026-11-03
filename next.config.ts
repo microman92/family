@@ -13,6 +13,13 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        source: '/account-access',
+        headers: [
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+          { key: 'Cache-Control', value: 'private, no-store' },
+        ],
+      },
+      {
         source: '/invite/:path*',
         headers: [
           { key: 'Referrer-Policy', value: 'no-referrer' },

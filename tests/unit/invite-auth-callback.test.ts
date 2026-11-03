@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
+vi.mock('server-only', () => ({}));
+vi.mock('@/server/auth/password-login', () => ({
+  needsPasswordLogin: async (user: { id: string }) => user.id === 'new-telegram',
+}));
 
 const savedInvite = vi.hoisted(() => ({ value: null as string | null }));
 const exchangeCode = vi.hoisted(() => vi.fn());
@@ -19,6 +23,17 @@ vi.mock('@/server/auth/index.server', () => ({
 import { GET } from '../../app/auth/callback/route';
 
 describe('Возврат после входа по приглашению', () => {
+  it('сохраняет приглашение при выдаче дополнительных данных входа', async () => {
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://family.example');
+    const invite = '/invite/' + 'b'.repeat(32);
+    savedInvite.value = invite;
+    exchangeCode.mockResolvedValue({ data: { user: { id: 'new-telegram' } }, error: null });
+    const response = await GET(new NextRequest('https://family.example/auth/callback?code=valid'));
+    const destination = new URL(response.headers.get('location')!);
+    expect(destination.pathname).toBe('/account-access');
+    expect(destination.searchParams.get('next')).toBe(invite);
+    expect(savedInvite.value).toBe(invite);
+  });
   afterEach(() => {
     vi.unstubAllEnvs();
     savedInvite.value = null;

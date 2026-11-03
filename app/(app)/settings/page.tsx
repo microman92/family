@@ -8,6 +8,8 @@ import {
   requestPasswordReset,
 } from '@/server/profile/index.server';
 import { redirect } from 'next/navigation';
+import { changePasswordLogin } from '@/server/auth/password-actions';
+import { internalLoginEmail, isTelegramUser } from '@/server/auth/password-login';
 
 export const metadata = { title: 'Настройки' };
 export default async function Page() {
@@ -24,6 +26,13 @@ export default async function Page() {
     .eq('user_id', user.id)
     .single();
   if (profileError || !profile) throw new Error('Не удалось загрузить профиль');
+  const { data: accountLogin, error: loginError } = await client
+    .from('account_logins')
+    .select('username')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (loginError && !['42P01', 'PGRST205'].includes(loginError.code))
+    throw new Error('Не удалось загрузить данные входа');
   let avatarUrl: string | null = null;
   if (profile.avatar_path) {
     const { data } = await client.storage
@@ -36,8 +45,15 @@ export default async function Page() {
       profile={{
         name: profile.display_name,
         avatarUrl,
-        email: user.email || null,
-        emailConfirmed: Boolean(user.email && user.email_confirmed_at),
+        email: internalLoginEmail(user.email) ? null : user.email || null,
+        emailConfirmed: Boolean(
+          user.email && user.email_confirmed_at && !internalLoginEmail(user.email),
+        ),
+        passwordLogin: accountLogin
+          ? { username: accountLogin.username, save: changePasswordLogin }
+          : null,
+        canCreateLogin: isTelegramUser(user) && !loginError,
+        technicalEmail: internalLoginEmail(user.email),
         updateName: updateProfile,
         updateAvatar,
         removeAvatar,

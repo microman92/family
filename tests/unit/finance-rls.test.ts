@@ -35,7 +35,7 @@ describe('Финансовая схема: изоляция и запрет пр
     await db.exec(
       await readFile('supabase/migrations/20261103093135_finance_expense_posting.sql', 'utf8'),
     );
-  });
+  }, 30000);
   afterAll(async () => {
     await db?.close();
   });

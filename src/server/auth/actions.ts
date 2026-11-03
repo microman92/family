@@ -9,6 +9,7 @@ import QRCode from 'qrcode';
 import { safeAuthDestination, type InviteState } from '@/shared/lib/auth';
 import { beginTelegramBinding } from './telegram-bind';
 import { rememberInvite, clearRememberedInvite } from './invite-cookie';
+import { passwordLoginAdmin } from './password-login';
 import {
   AccessDeniedError,
   getCurrentUser,
@@ -28,7 +29,23 @@ export async function authenticate(
 ): Promise<AuthState> {
   if (!getSupabaseConfig()) return { error: 'Сервис входа пока не настроен.' };
   await clearRememberedInvite();
-  const email = emailSchema.safeParse(form.get('email'));
+  let identifier = form.get('email');
+  if (mode === 'login' && typeof identifier === 'string' && !identifier.includes('@')) {
+    const username = identifier.trim().toLowerCase();
+    if (!/^[a-z][a-z0-9_]{3,31}$/.test(username)) return { error: 'Проверьте логин и пароль.' };
+    const admin = passwordLoginAdmin();
+    const { data: account, error: accountError } = await admin
+      .from('account_logins')
+      .select('user_id')
+      .eq('username', username)
+      .eq('is_ready', true)
+      .maybeSingle();
+    if (accountError || !account) return { error: 'Проверьте логин и пароль.' };
+    const { data, error } = await admin.auth.admin.getUserById(account.user_id);
+    if (error || !data.user.email) return { error: 'Проверьте логин и пароль.' };
+    identifier = data.user.email;
+  }
+  const email = emailSchema.safeParse(identifier);
   if (!email.success) return { error: 'Введите корректный email.' };
   const client = await createAuthClient();
   if (mode === 'reset') {
@@ -59,7 +76,7 @@ export async function authenticate(
     email: email.data,
     password: password.data,
   });
-  if (error) return { error: 'Не удалось войти. Проверьте email и пароль.' };
+  if (error) return { error: 'Не удалось войти. Проверьте логин или почту и пароль.' };
   redirect('/onboarding');
 }
 

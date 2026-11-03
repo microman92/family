@@ -5,6 +5,8 @@ import { useActionState } from 'react';
 import { Button, Input } from '@/shared/ui';
 import type { AuthState } from '@/shared/lib/auth';
 import styles from './profile-settings.module.scss';
+import Link from 'next/link';
+import { PasswordLoginSettings } from './password-login';
 
 type Action = (state: AuthState, data: FormData) => Promise<AuthState>;
 
@@ -30,6 +32,9 @@ export function ProfileSettings({
   removeAvatar,
   updateEmail,
   resetPassword,
+  passwordLogin,
+  canCreateLogin = false,
+  technicalEmail = false,
 }: {
   name: string;
   avatarUrl: string | null;
@@ -40,6 +45,9 @@ export function ProfileSettings({
   removeAvatar: () => Promise<AuthState>;
   updateEmail: Action;
   resetPassword: () => Promise<AuthState>;
+  passwordLogin?: { username: string; save: Action } | null;
+  canCreateLogin?: boolean;
+  technicalEmail?: boolean;
 }) {
   const [nameState, nameAction, namePending] = useActionState(updateName, {});
   const [avatarState, avatarAction, avatarPending] = useActionState(updateAvatar, {});
@@ -99,39 +107,50 @@ export function ProfileSettings({
         </Button>
         <Feedback state={nameState} />
       </form>
-      <div className={styles.security}>
-        <h3>Почта и пароль</h3>
-        <p>
-          Подтверждённая почта позволяет установить пароль и восстановить доступ. Вход через
-          Telegram сохраняется.
-        </p>
-        <form action={emailAction} className={styles.form}>
-          <label htmlFor="profile-email">Электронная почта</label>
-          <Input
-            id="profile-email"
-            name="email"
-            type="email"
-            defaultValue={email ?? ''}
-            required
-            maxLength={254}
-            autoComplete="email"
-          />
-          {email && (
-            <small>{emailConfirmed ? 'Адрес подтверждён.' : 'Адрес ещё не подтверждён.'}</small>
-          )}
-          <Button type="submit" variant="outline" disabled={emailPending}>
-            {emailPending ? 'Отправляем…' : email ? 'Изменить почту' : 'Добавить почту'}
+      {passwordLogin ? (
+        <PasswordLoginSettings {...passwordLogin} />
+      ) : (
+        canCreateLogin && (
+          <Button asChild variant="outline">
+            <Link href="/account-access?next=/settings">Создать логин и пароль</Link>
           </Button>
-          <Feedback state={emailState} />
-        </form>
-        <form action={passwordAction} className={styles.form}>
-          <Button type="submit" variant="outline" disabled={!emailConfirmed || passwordPending}>
-            {passwordPending ? 'Отправляем…' : 'Установить или изменить пароль'}
-          </Button>
-          <small>Отправим ссылку на подтверждённую почту.</small>
-          <Feedback state={passwordState} />
-        </form>
-      </div>
+        )
+      )}
+      {!technicalEmail && (
+        <div className={styles.security}>
+          <h3>Почта и пароль</h3>
+          <p>
+            Подтверждённая почта позволяет установить пароль и восстановить доступ. Вход через
+            Telegram сохраняется.
+          </p>
+          <form action={emailAction} className={styles.form}>
+            <label htmlFor="profile-email">Электронная почта</label>
+            <Input
+              id="profile-email"
+              name="email"
+              type="email"
+              defaultValue={email ?? ''}
+              required
+              maxLength={254}
+              autoComplete="email"
+            />
+            {email && (
+              <small>{emailConfirmed ? 'Адрес подтверждён.' : 'Адрес ещё не подтверждён.'}</small>
+            )}
+            <Button type="submit" variant="outline" disabled={emailPending}>
+              {emailPending ? 'Отправляем…' : email ? 'Изменить почту' : 'Добавить почту'}
+            </Button>
+            <Feedback state={emailState} />
+          </form>
+          <form action={passwordAction} className={styles.form}>
+            <Button type="submit" variant="outline" disabled={!emailConfirmed || passwordPending}>
+              {passwordPending ? 'Отправляем…' : 'Установить или изменить пароль'}
+            </Button>
+            <small>Отправим ссылку на подтверждённую почту.</small>
+            <Feedback state={passwordState} />
+          </form>
+        </div>
+      )}
     </div>
   );
 }

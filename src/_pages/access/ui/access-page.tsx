@@ -12,6 +12,7 @@ const titles = {
   invite: 'Вас ждут в Family',
   update: 'Новый пароль',
   help: 'Как работает Family',
+  credentials: 'Ваш дополнительный вход',
 } as const;
 
 type Action = (state: AuthState, data: FormData) => Promise<AuthState>;
@@ -81,12 +82,13 @@ export function AccessPage({
               onboarding: 'Создайте пространство для семьи.',
               invite: 'Подтвердите приглашение после входа.',
               help: 'Выберите подходящий способ начать работу.',
+              credentials: 'В следующий раз можно войти по логину и паролю.',
             }[kind]
           }
         </p>
         {error && <p role="alert">{error}</p>}
         {notice && <p role="status">{notice}</p>}
-        {action && kind !== 'invite' && kind !== 'help' && (
+        {action && kind !== 'invite' && kind !== 'help' && kind !== 'credentials' && (
           <AuthForm
             mode={kind}
             action={action}

@@ -44,12 +44,14 @@ export function AuthForm({
         <form action={dispatch} className={styles.form}>
           {email && (
             <div className={styles.field}>
-              <label htmlFor="email">Электронная почта</label>
+              <label htmlFor="email">
+                {mode === 'login' ? 'Электронная почта или логин' : 'Электронная почта'}
+              </label>
               <Input
                 id="email"
                 name="email"
-                type="email"
-                autoComplete="email"
+                type={mode === 'login' ? 'text' : 'email'}
+                autoComplete={mode === 'login' ? 'username' : 'email'}
                 required
                 maxLength={254}
                 disabled={!configured || pending}
@@ -108,7 +110,7 @@ export function AuthForm({
             {pending
               ? 'Подождите…'
               : {
-                  login: 'Войти по почте',
+                  login: 'Войти',
                   register: 'Зарегистрироваться',
                   reset: 'Отправить письмо',
                   update: 'Сохранить пароль',
