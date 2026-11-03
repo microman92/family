@@ -1,12 +1,12 @@
 import Link from 'next/link';
-import { ShoppingEditForm } from '@/features/shopping';
+import { ShoppingEditForm, ShoppingItemStepper } from '@/features/shopping';
 import {
   getCurrentUser,
   requireCurrentFamilyCapability,
   AccessDeniedError,
 } from '@/server/access/index.server';
 import {
-  addShoppingItem,
+  addShoppingPosition,
   saveShoppingCategory,
   archiveShoppingCategory,
 } from '@/server/shopping/index.server';
@@ -20,7 +20,6 @@ export default async function Page({
   searchParams: Promise<{
     scope?: string;
     error?: string;
-    location?: string;
     urgent?: string;
     big?: string;
     sort?: string;
@@ -38,8 +37,6 @@ export default async function Page({
   const selected = scope === 'family' && !familyId ? 'private' : scope;
   const tabLink = (nextScope: 'family' | 'private') => {
     const next = new URLSearchParams({ scope: nextScope });
-    if (['store', 'market', 'online'].includes(params.location ?? ''))
-      next.set('location', params.location!);
     if (params.urgent === '1') next.set('urgent', '1');
     if (params.big === '1') next.set('big', '1');
     if (params.sort === 'due') next.set('sort', 'due');
@@ -51,13 +48,11 @@ export default async function Page({
       'id,title,planned_qty,unit,planned_unit_price,priority,location,big_purchase,due_date,assigned_to,category_id,preset_id,version',
     )
     .eq('visibility', selected);
-  if (['store', 'market', 'online'].includes(params.location ?? ''))
-    query = query.eq('location', params.location!);
   if (params.urgent === '1') query = query.eq('priority', 'urgent');
   if (params.big === '1') query = query.eq('big_purchase', true);
   const { data: presets, error: presetsError } = await client
     .from('shopping_category_presets')
-    .select('id,name')
+    .select('id,name,icon')
     .order('name');
   const categoryQuery = client
     .from('shopping_categories')
@@ -93,102 +88,32 @@ export default async function Page({
           Личное
         </Link>
       </nav>
+      {!error && !presetsError && !categoriesError && !membersError && (
+        <ShoppingItemStepper
+          key={selected}
+          scope={selected}
+          save={addShoppingPosition}
+          categories={[
+            ...(presets ?? []).map((preset) => ({
+              value: `preset:${preset.id}`,
+              name: preset.name,
+              icon: preset.icon,
+            })),
+            ...(categories ?? []).map((category) => ({
+              value: `custom:${category.id}`,
+              name: category.name,
+              icon: category.icon,
+            })),
+          ]}
+          members={members ?? []}
+        />
+      )}
       <section className={styles.panel}>
         <h2>{selected === 'family' ? 'Общий список' : 'Личный список'}</h2>
         {error || presetsError || categoriesError || membersError ? (
           <p role="alert">Не удалось загрузить покупки. Попробуйте позже.</p>
         ) : (
           <>
-            <form action={addShoppingItem} className={styles.add}>
-              <input type="hidden" name="scope" value={selected} />
-              <label htmlFor="shopping-title">Название покупки</label>
-              <div className={styles.quickAdd}>
-                <input
-                  id="shopping-title"
-                  name="title"
-                  maxLength={200}
-                  required
-                  placeholder="Например, молоко"
-                />
-                <Button type="submit">Добавить</Button>
-              </div>
-              <details className={styles.options}>
-                <summary>Указать подробности</summary>
-                <div className={styles.fields}>
-                  <label>
-                    Количество
-                    <input
-                      name="qty"
-                      type="number"
-                      min="0.001"
-                      max="999999999"
-                      step="0.001"
-                      defaultValue="1"
-                    />
-                  </label>
-                  <label>
-                    Единица
-                    <input name="unit" maxLength={24} defaultValue="шт" />
-                  </label>
-                  <label>
-                    Цена за единицу, сум
-                    <input name="price" type="number" min="0" max="999999999999" step="1" />
-                  </label>
-                  <label>
-                    Категория
-                    <select name="category" defaultValue="">
-                      <option value="">Без категории</option>
-                      {presets?.map((preset) => (
-                        <option key={preset.id} value={`preset:${preset.id}`}>
-                          {preset.name}
-                        </option>
-                      ))}
-                      {categories?.map((category) => (
-                        <option key={category.id} value={`custom:${category.id}`}>
-                          {category.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Срочность
-                    <select name="priority" defaultValue="normal">
-                      <option value="normal">Обычная</option>
-                      <option value="urgent">Срочно</option>
-                    </select>
-                  </label>
-                  <label>
-                    Место
-                    <select name="location" defaultValue="">
-                      <option value="">Не указано</option>
-                      <option value="store">Магазин</option>
-                      <option value="market">Базар</option>
-                      <option value="online">Онлайн</option>
-                    </select>
-                  </label>
-                  <label>
-                    Дата
-                    <input name="due" type="date" />
-                  </label>
-                  {selected === 'family' && (
-                    <label>
-                      Ответственный
-                      <select name="assigned" defaultValue="">
-                        <option value="">Не назначен</option>
-                        {members?.map((member: { member_id: string; display_name: string }) => (
-                          <option key={member.member_id} value={member.member_id}>
-                            {member.display_name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  )}
-                  <label className={styles.checkbox}>
-                    <input name="big" type="checkbox" /> Крупная покупка
-                  </label>
-                </div>
-              </details>
-            </form>
             {params.error && (
               <p role="alert">
                 {params.error === 'title'
@@ -202,15 +127,6 @@ export default async function Page({
             )}
             <form className={styles.filters} action="/shopping">
               <input type="hidden" name="scope" value={selected} />
-              <label>
-                Место
-                <select name="location" defaultValue={params.location ?? ''}>
-                  <option value="">Все места</option>
-                  <option value="store">Магазин</option>
-                  <option value="market">Базар</option>
-                  <option value="online">Онлайн</option>
-                </select>
-              </label>
               <label>
                 Сортировка
                 <select name="sort" defaultValue={params.sort === 'due' ? 'due' : 'new'}>
@@ -329,15 +245,7 @@ export default async function Page({
                                 <option value="urgent">Срочно</option>
                               </select>
                             </label>
-                            <label>
-                              Место
-                              <select name="location" defaultValue={item.location ?? ''}>
-                                <option value="">Не указано</option>
-                                <option value="store">Магазин</option>
-                                <option value="market">Базар</option>
-                                <option value="online">Онлайн</option>
-                              </select>
-                            </label>
+                            <input type="hidden" name="location" value={item.location ?? ''} />
                             <label>
                               Дата
                               <input name="due" type="date" defaultValue={item.due_date ?? ''} />
@@ -381,14 +289,19 @@ export default async function Page({
                         </details>
                       </div>
                       <small className={styles.itemMeta}>
-                        {item.planned_qty} {item.unit} ·{' '}
+                        {item.preset_id
+                          ? (presets?.find((preset) => preset.id === item.preset_id)?.name ??
+                            'Без категории')
+                          : item.category_id
+                            ? (categories?.find((category) => category.id === item.category_id)
+                                ?.name ?? 'Архивная категория')
+                            : 'Без категории'}{' '}
+                        · {item.planned_qty} {item.unit} ·{' '}
                         {item.planned_unit_price === null
                           ? 'Цена не указана'
                           : `${item.planned_unit_price} сум за единицу`}
                         {item.priority === 'urgent' && ' · Срочно'}
                         {item.big_purchase && ' · Крупная'}
-                        {item.location &&
-                          ` · ${{ store: 'Магазин', market: 'Базар', online: 'Онлайн' }[item.location as 'store' | 'market' | 'online']}`}
                         {item.due_date && ` · До ${item.due_date}`}
                         {item.assigned_to &&
                           ` · ${members?.find((member: { member_id: string }) => member.member_id === item.assigned_to)?.display_name ?? 'Участник недоступен'}`}

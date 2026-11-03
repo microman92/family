@@ -127,6 +127,98 @@ try {
   await page.getByRole('button', { name: 'Войти', exact: true }).click();
   await page.waitForURL('**/dashboard');
 
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto(`${origin}/shopping?scope=family&location=online`);
+  if (await page.locator('select[name="location"]').count())
+    throw new Error('Place selector is still visible');
+  await page.getByRole('button', { name: 'Продукты', exact: true }).click();
+  const stepper = page.getByRole('region', { name: 'Новая позиция' });
+  await stepper.getByLabel('Название покупки').fill('Картошка');
+  if ((await stepper.getByLabel('Единица', { exact: true }).inputValue()) !== 'кг')
+    throw new Error('Potatoes did not suggest kg');
+  await stepper.getByLabel('Количество', { exact: true }).fill('2.5');
+  await stepper.getByLabel('Цена за единицу, сум', { exact: false }).fill('12345');
+  await stepper.getByRole('button', { name: 'Сменить категорию', exact: true }).click();
+  await page.getByRole('button', { name: 'Продукты', exact: true }).click();
+  if (
+    (await stepper.getByLabel('Количество', { exact: true }).inputValue()) !== '2.5' ||
+    (await stepper.getByLabel('Цена за единицу, сум', { exact: false }).inputValue()) !== '12345'
+  )
+    throw new Error('Category navigation lost draft fields');
+  await stepper.getByLabel('Цена за единицу, сум', { exact: false }).fill('');
+  const createRequest = page.waitForRequest(
+    (request) => request.method() === 'POST' && Boolean(request.headers()['next-action']),
+  );
+  await stepper.getByRole('button', { name: 'Добавить ещё', exact: true }).click();
+  const firstRequest = await createRequest;
+  await stepper.getByRole('status').waitFor();
+  if ((await stepper.getByLabel('Название покупки').inputValue()) !== '')
+    throw new Error('Next position was not cleared');
+  await stepper.getByRole('heading', { name: 'Продукты', exact: true }).waitFor();
+  const replay = await context.request.fetch(firstRequest);
+  if (!replay.ok()) throw new Error('Repeated position request failed');
+  await stepper.getByLabel('Название покупки').fill('Молоко');
+  if ((await stepper.getByLabel('Единица', { exact: true }).inputValue()) !== 'шт')
+    throw new Error('Next position did not reset the unit');
+  await stepper.getByLabel('Единица', { exact: true }).fill('упак');
+  await stepper.getByLabel('Название покупки').fill('Молоко пастеризованное');
+  if ((await stepper.getByLabel('Единица', { exact: true }).inputValue()) !== 'упак')
+    throw new Error('Manual unit was overwritten');
+  await stepper.getByRole('button', { name: 'Добавить и завершить', exact: true }).click();
+  await page.getByRole('button', { name: 'Продукты', exact: true }).waitFor();
+  const positions = checked(
+    await client
+      .from('shopping_items')
+      .select('id,title,preset_id,planned_unit_price,planned_qty,unit')
+      .in('title', ['Картошка', 'Молоко пастеризованное']),
+    'Read saved positions',
+  );
+  if (
+    positions.length !== 2 ||
+    positions.some((item) => item.preset_id !== 'food' || item.planned_unit_price !== null)
+  )
+    throw new Error('Category, optional price or idempotency failed');
+  const potato = positions.find((item) => item.title === 'Картошка');
+  const potatoRow = page.locator('li').filter({ has: page.getByText('Картошка', { exact: true }) });
+  await potatoRow.getByText('Редактировать', { exact: true }).click();
+  await potatoRow.getByLabel('Цена за единицу, сум', { exact: true }).fill('12000');
+  const priceResponse = page.waitForResponse(
+    (response) =>
+      response.url().includes('/api/shopping/item') && response.request().method() === 'POST',
+  );
+  await potatoRow.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  if (!(await priceResponse).ok()) throw new Error('Later price update failed');
+  const priced = checked(
+    await client
+      .from('shopping_items')
+      .select('planned_unit_price,unit')
+      .eq('id', potato.id)
+      .single(),
+    'Read updated price',
+  );
+  if (String(priced.planned_unit_price) !== '12000' || priced.unit !== 'кг')
+    throw new Error('Price could not be added later');
+  await page.getByRole('button', { name: 'Гигиена', exact: true }).click();
+  await stepper.getByLabel('Название покупки').fill('Мыло');
+  await stepper.getByRole('button', { name: 'Добавить и завершить', exact: true }).click();
+  await page.getByRole('button', { name: 'Гигиена', exact: true }).waitFor();
+  const hygiene = checked(
+    await client.from('shopping_items').select('preset_id').eq('title', 'Мыло').single(),
+    'Read hygiene position',
+  );
+  if (hygiene.preset_id !== 'hygiene') throw new Error('Category did not change');
+  await page.getByRole('button', { name: 'Продукты', exact: true }).click();
+  await stepper.getByLabel('Количество', { exact: true }).fill('3');
+  await stepper.getByRole('button', { name: 'Готово', exact: true }).click();
+  await page.getByRole('button', { name: 'Продукты', exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Продукты', exact: true }).click();
+  if ((await stepper.getByLabel('Количество', { exact: true }).inputValue()) !== '1')
+    throw new Error('Finished draft did not reset quantity');
+  await stepper.getByRole('button', { name: 'Готово', exact: true }).click();
+  console.log(
+    'PASS: category stepper, add-more, optional price, units, repeat request and later price edit.',
+  );
+
   const routes = [
     '/dashboard',
     '/family',
@@ -161,6 +253,7 @@ try {
             });
         }
         if (route === '/shopping') {
+          await page.getByRole('button', { name: 'Продукты', exact: true }).click();
           await page.locator('details').evaluateAll((nodes) => {
             for (const node of nodes) node.open = true;
           });
@@ -181,6 +274,7 @@ try {
           ['/dashboard', '/family', '/shopping', '/settings'].includes(route) &&
           [320, 1440].includes(width)
         ) {
+          await page.evaluate(() => window.scrollTo(0, 0));
           await page.screenshot({
             path: `${output}/${theme}-${width}-${route.slice(1)}.png`,
             fullPage: true,
@@ -232,6 +326,8 @@ try {
   const touchPage = await touchContext.newPage();
   for (const route of ['/family', '/shopping', '/settings']) {
     await touchPage.goto(`${origin}${route}`);
+    if (route === '/shopping')
+      await touchPage.getByRole('button', { name: 'Продукты', exact: true }).click();
     await touchPage.locator('details').evaluateAll((nodes) => {
       for (const node of nodes) node.open = true;
     });

@@ -1,5 +1,6 @@
 export {
   addShoppingItem,
+  addShoppingPosition,
   updateShoppingItem,
   saveShoppingCategory,
   archiveShoppingCategory,

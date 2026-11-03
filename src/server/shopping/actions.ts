@@ -3,7 +3,12 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
-import { getCurrentUser, requireCurrentFamilyCapability } from '@/server/access/index.server';
+import {
+  AccessDeniedError,
+  getCurrentUser,
+  requireCurrentFamilyCapability,
+} from '@/server/access/index.server';
+import type { AuthState } from '@/shared/lib/auth';
 
 function parseShoppingFields(form: FormData) {
   const fields = z
@@ -17,9 +22,12 @@ function parseShoppingFields(form: FormData) {
       price: z.union([z.literal(''), z.string().regex(/^[0-9]{1,12}$/)]),
       priority: z.enum(['normal', 'urgent']),
       location: z.enum(['', 'store', 'market', 'online']),
-      category: z.string().regex(/^(?:|preset:[a-z]+|custom:[0-9a-f-]{36})$/i),
+      category: z
+        .string()
+        .toLowerCase()
+        .regex(/^(?:|preset:[a-z]+|custom:[0-9a-f-]{36})$/),
       due: z.union([z.literal(''), z.iso.date()]),
-      assigned: z.union([z.literal(''), z.uuid()]),
+      assigned: z.union([z.literal(''), z.uuid().toLowerCase()]),
     })
     .safeParse({
       title: form.get('title'),
@@ -37,7 +45,7 @@ function parseShoppingFields(form: FormData) {
     title: fields.data.title,
     planned_qty: fields.data.qty,
     unit: fields.data.unit,
-    planned_unit_price: fields.data.price || null,
+    planned_unit_price: fields.data.price ? BigInt(fields.data.price).toString() : null,
     priority: fields.data.priority,
     location: fields.data.location || null,
     preset_id: fields.data.category.startsWith('preset:') ? fields.data.category.slice(7) : null,
@@ -48,21 +56,73 @@ function parseShoppingFields(form: FormData) {
   };
 }
 
-export async function addShoppingItem(form: FormData) {
+async function insertShoppingItem(form: FormData, requestId?: string): Promise<AuthState> {
   const scope = form.get('scope') === 'private' ? 'private' : 'family';
   const fields = parseShoppingFields(form);
-  if (!fields) redirect(`/shopping?scope=${scope}&error=fields`);
+  if (!fields) return { error: 'Проверьте название, количество и остальные поля покупки.' };
   const { client, user } = await getCurrentUser();
   const family = scope === 'family' ? await requireCurrentFamilyCapability('members.read') : null;
-  const { error } = await client.from('shopping_items').insert({
+  const values = {
     visibility: scope,
     family_id: family?.familyId ?? null,
     owner_user_id: scope === 'private' ? user.id : null,
     ...fields,
+  };
+  const { error } = await client.from('shopping_items').insert({
+    ...values,
+    ...(requestId ? { id: requestId } : {}),
   });
-  if (error) redirect(`/shopping?scope=${scope}&error=save`);
+  if (error?.code === '23505' && requestId) {
+    const { data: existing, error: readError } = await client
+      .from('shopping_items')
+      .select(
+        'title,planned_qty,unit,planned_unit_price,priority,location,preset_id,category_id,due_date,assigned_to,big_purchase,visibility,family_id,owner_user_id',
+      )
+      .eq('id', requestId)
+      .maybeSingle();
+    const matches =
+      existing &&
+      Object.entries(values).every(([key, value]) => {
+        if (key === 'planned_qty') return Number(existing[key]) === Number(value);
+        return String(existing[key as keyof typeof values] ?? '') === String(value ?? '');
+      });
+    if (readError || !matches)
+      return {
+        error: 'Не удалось подтвердить сохранение. Обновите список перед повторным добавлением.',
+      };
+  } else if (error) {
+    return {
+      error:
+        'Не удалось добавить покупку. Проверьте категорию и остальные поля, затем попробуйте снова.',
+    };
+  }
   revalidatePath('/shopping');
+  return { message: 'Позиция добавлена.' };
+}
+
+export async function addShoppingItem(form: FormData) {
+  const scope = form.get('scope') === 'private' ? 'private' : 'family';
+  if (!parseShoppingFields(form)) redirect(`/shopping?scope=${scope}&error=fields`);
+  const state = await insertShoppingItem(form);
+  if (state.error) redirect(`/shopping?scope=${scope}&error=save`);
   redirect(`/shopping?scope=${scope}`);
+}
+
+export async function addShoppingPosition(_state: AuthState, form: FormData): Promise<AuthState> {
+  const requestId = z.uuid().safeParse(form.get('requestId'));
+  if (
+    !requestId.success ||
+    !['family', 'private'].includes(String(form.get('scope'))) ||
+    !form.get('category')
+  )
+    return { error: 'Выберите категорию и повторите добавление.' };
+  try {
+    return await insertShoppingItem(form, requestId.data);
+  } catch (error) {
+    if (error instanceof AccessDeniedError)
+      return { error: 'Нет доступа к этому списку. Войдите снова или проверьте участие в семье.' };
+    throw error;
+  }
 }
 
 export async function updateShoppingItem(

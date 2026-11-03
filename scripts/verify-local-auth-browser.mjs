@@ -174,20 +174,13 @@ try {
     await page.getByText('Свои категории').click();
     await page.getByLabel('Название категории').fill('Тестовая категория');
     await page.getByRole('button', { name: 'Добавить категорию' }).click();
-    await page
-      .locator('select[name="category"] option')
-      .filter({ hasText: 'Тестовая категория' })
-      .waitFor({ state: 'attached' });
+    await page.getByRole('button', { name: 'Тестовая категория', exact: true }).waitFor();
     await page.getByText('Свои категории').click();
     await page.getByLabel('Название категории').last().fill('Изменённая категория');
     await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
-    await page
-      .locator('select[name="category"] option')
-      .filter({ hasText: 'Изменённая категория' })
-      .waitFor({ state: 'attached' });
+    await page.getByRole('button', { name: 'Изменённая категория', exact: true }).click();
     await page.getByLabel('Название покупки').fill('Тестовая общая покупка');
-    await page.getByText('Указать подробности').click();
-    await page.locator('select[name="category"]').selectOption({ label: 'Изменённая категория' });
+    await page.getByText('Дополнительные параметры').click();
     await page.getByLabel('Срочность').selectOption('urgent');
     const assignee = await page
       .locator('select[name="assigned"] option')
@@ -195,11 +188,9 @@ try {
       .getAttribute('value');
     if (!assignee) throw new Error('Family assignee is unavailable');
     await page.locator('select[name="assigned"]').selectOption(assignee);
-    await page.locator('select[name="location"]').first().selectOption('market');
     await page.getByLabel('Крупная покупка').check();
-    await page.getByRole('button', { name: 'Добавить', exact: true }).click();
+    await page.getByRole('button', { name: 'Добавить и завершить', exact: true }).click();
     await page.getByText('Тестовая общая покупка').waitFor();
-    await page.locator('form[action="/shopping"] select[name="location"]').selectOption('market');
     await page.getByLabel('Срочные').check();
     await page.getByLabel('Крупные', { exact: true }).check();
     await page.getByRole('button', { name: 'Показать', exact: true }).click();
@@ -211,8 +202,9 @@ try {
     await page.getByRole('heading', { name: 'Личный список' }).waitFor();
     if (await page.getByText('Тестовая общая покупка').count())
       throw new Error('Shared shopping item shown in private list');
+    await page.getByRole('button', { name: 'Продукты', exact: true }).click();
     await page.getByLabel('Название покупки').fill('Тестовая личная покупка');
-    await page.getByRole('button', { name: 'Добавить', exact: true }).click();
+    await page.getByRole('button', { name: 'Добавить и завершить', exact: true }).click();
     await page.getByText('Тестовая личная покупка').waitFor();
     await page.getByRole('link', { name: 'Общее', exact: true }).click();
     await page.getByRole('heading', { name: 'Общий список' }).waitFor();
