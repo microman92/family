@@ -206,7 +206,11 @@ try {
     throw new Error('Price could not be added later');
   await page.getByRole('button', { name: 'Гигиена', exact: true }).click();
   await stepper.getByLabel('Название покупки').fill('Мыло');
+  const hygieneCreate = page.waitForRequest(
+    (request) => request.method() === 'POST' && Boolean(request.headers()['next-action']),
+  );
   await stepper.getByRole('button', { name: 'Добавить и завершить', exact: true }).click();
+  const hygieneCreateRequest = await hygieneCreate;
   await page.getByRole('button', { name: 'Гигиена', exact: true }).waitFor();
   const hygiene = checked(
     await client.from('shopping_items').select('preset_id').eq('title', 'Мыло').single(),
@@ -224,6 +228,74 @@ try {
   console.log(
     'PASS: category stepper, add-more, optional price, units, repeat request and later price edit.',
   );
+
+  const soap = page.locator('li').filter({ has: page.getByText('Мыло', { exact: true }) });
+  await soap.getByRole('button', { name: 'Удалить позицию «Мыло»', exact: true }).click();
+  await soap.getByRole('button', { name: 'Отмена', exact: true }).click();
+  if (!(await soap.isVisible())) throw new Error('Cancel removed the shopping item');
+  await soap.getByRole('button', { name: 'Удалить позицию «Мыло»', exact: true }).click();
+  const deleteCapture = page.waitForRequest(
+    (request) => request.method() === 'POST' && Boolean(request.headers()['next-action']),
+  );
+  await soap.getByRole('button', { name: 'Удалить позицию', exact: true }).click();
+  const deleteRequest = await deleteCapture;
+  await soap.waitFor({ state: 'detached' });
+  const deletedSoap = checked(
+    await client.from('shopping_items').select('deleted_at,version').eq('title', 'Мыло').single(),
+    'Read deleted item',
+  );
+  if (!deletedSoap.deleted_at) throw new Error('Item deletion was not stored');
+  if (!(await context.request.fetch(deleteRequest)).ok())
+    throw new Error('Repeated deletion failed');
+  if (!(await context.request.fetch(hygieneCreateRequest)).ok())
+    throw new Error('Repeated creation failed');
+  await page.reload();
+  if (await page.getByText('Мыло', { exact: true }).count())
+    throw new Error('A repeated request restored a deleted item');
+  const afterRetry = checked(
+    await client.from('shopping_items').select('deleted_at,version').eq('title', 'Мыло').single(),
+    'Read deletion after retries',
+  );
+  if (!afterRetry.deleted_at || afterRetry.version !== deletedSoap.version)
+    throw new Error('Retry mutated deleted item');
+
+  checked(
+    await client
+      .from('shopping_items')
+      .update({ title: 'Картошка обновлена', version: 3 })
+      .eq('id', potato.id),
+    'Concurrent shopping update',
+  );
+  await potatoRow.getByRole('button', { name: 'Удалить позицию «Картошка»', exact: true }).click();
+  await potatoRow.getByRole('button', { name: 'Удалить позицию', exact: true }).click();
+  await potatoRow.getByRole('alert').filter({ hasText: 'Позиция изменилась' }).waitFor();
+  const retained = checked(
+    await client.from('shopping_items').select('deleted_at').eq('id', potato.id).single(),
+    'Read concurrent item',
+  );
+  if (retained.deleted_at) throw new Error('Stale deletion removed an edited item');
+  await page.goto(`${origin}/shopping?scope=private`);
+  await page.getByRole('button', { name: 'Продукты', exact: true }).click();
+  await stepper.getByLabel('Название покупки').fill('Личная позиция для удаления');
+  await stepper.getByRole('button', { name: 'Добавить и завершить', exact: true }).click();
+  const privateItem = page
+    .locator('li')
+    .filter({ has: page.getByText('Личная позиция для удаления', { exact: true }) });
+  await privateItem
+    .getByRole('button', { name: 'Удалить позицию «Личная позиция для удаления»', exact: true })
+    .click();
+  await privateItem.getByRole('button', { name: 'Удалить позицию', exact: true }).click();
+  await privateItem.waitFor({ state: 'detached' });
+  const privateDeleted = checked(
+    await client
+      .from('shopping_items')
+      .select('deleted_at')
+      .eq('title', 'Личная позиция для удаления')
+      .single(),
+    'Read private deletion',
+  );
+  if (!privateDeleted.deleted_at) throw new Error('Private deletion failed');
+  console.log('PASS: shopping delete, cancel, private scope, stale version and retries.');
 
   const routes = [
     '/dashboard',
@@ -263,6 +335,9 @@ try {
           await page.locator('details').evaluateAll((nodes) => {
             for (const node of nodes) node.open = true;
           });
+          await page
+            .getByRole('button', { name: 'Удалить позицию «Картошка обновлена»', exact: true })
+            .click();
         }
         const overflow = await page.evaluate(() =>
           [...document.querySelectorAll('main *')]

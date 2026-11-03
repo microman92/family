@@ -129,8 +129,17 @@
   }
 }
 .itemTitle {
+  flex: 1 1 160px;
+  min-width: 0;
   font-weight: 600;
   overflow-wrap: anywhere;
+}
+.itemHeading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 .itemMeta {
   display: block;

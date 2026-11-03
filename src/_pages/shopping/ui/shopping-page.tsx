@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ShoppingEditForm, ShoppingItemStepper } from '@/features/shopping';
+import { ShoppingEditForm, ShoppingItemStepper, ShoppingDelete } from '@/features/shopping';
 import {
   getCurrentUser,
   requireCurrentFamilyCapability,
@@ -7,6 +7,7 @@ import {
 } from '@/server/access/index.server';
 import {
   addShoppingPosition,
+  deleteShoppingItem,
   saveShoppingCategory,
   archiveShoppingCategory,
 } from '@/server/shopping/index.server';
@@ -47,7 +48,8 @@ export default async function Page({
     .select(
       'id,title,planned_qty,unit,planned_unit_price,priority,location,big_purchase,due_date,assigned_to,category_id,preset_id,version',
     )
-    .eq('visibility', selected);
+    .eq('visibility', selected)
+    .is('deleted_at', null);
   if (params.urgent === '1') query = query.eq('priority', 'urgent');
   if (params.big === '1') query = query.eq('big_purchase', true);
   const { data: presets, error: presetsError } = await client
@@ -109,7 +111,9 @@ export default async function Page({
         />
       )}
       <section className={styles.panel}>
-        <h2>{selected === 'family' ? 'Общий список' : 'Личный список'}</h2>
+        <h2 id="shopping-list-title" tabIndex={-1}>
+          {selected === 'family' ? 'Общий список' : 'Личный список'}
+        </h2>
         {error || presetsError || categoriesError || membersError ? (
           <p role="alert">Не удалось загрузить покупки. Попробуйте позже.</p>
         ) : (
@@ -162,7 +166,17 @@ export default async function Page({
                   {items.map((item) => (
                     <li key={item.id}>
                       <div>
-                        <span className={styles.itemTitle}>{item.title}</span>
+                        <div className={styles.itemHeading}>
+                          <span className={styles.itemTitle}>{item.title}</span>
+                          <ShoppingDelete
+                            key={item.version}
+                            id={item.id}
+                            title={item.title}
+                            version={item.version}
+                            scope={selected}
+                            remove={deleteShoppingItem}
+                          />
+                        </div>
                         <details className={styles.edit}>
                           <summary>Редактировать</summary>
                           <ShoppingEditForm key={item.version}>

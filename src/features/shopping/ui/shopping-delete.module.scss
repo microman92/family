@@ -1,0 +1,26 @@
+.confirm {
+  display: grid;
+  gap: 12px;
+  width: min(100%, 320px);
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--secondary);
+  p {
+    margin: 0;
+    font-size: 13px;
+    overflow-wrap: anywhere;
+  }
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.error {
+  color: var(--destructive);
+  button {
+    color: inherit;
+    text-decoration: underline;
+  }
+}

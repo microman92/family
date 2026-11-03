@@ -83,6 +83,8 @@ do $$ begin
     raise exception 'FAIL: child has unapproved shared access'; end if;
 end $$;
 reset role;
+update public.shopping_items set assigned_to=(select id from public.family_members where user_id=current_setting('test.shop_b')::uuid), version=version+1
+where id=current_setting('test.family_item')::uuid;
 update public.family_members set status='removed' where user_id=current_setting('test.shop_b')::uuid;
 set local role authenticated;
 select set_config('request.jwt.claim.sub', current_setting('test.shop_b'), true);
@@ -90,5 +92,27 @@ do $$ begin
   if exists (select 1 from public.shopping_items where id=current_setting('test.family_item')::uuid) then
     raise exception 'FAIL: removed member retains access'; end if;
 end $$;
+do $$ begin
+  update public.shopping_items set deleted_at=now(), version=version+1 where id=current_setting('test.family_item')::uuid;
+  if found then raise exception 'FAIL: removed member can delete item'; end if;
+end $$;
+select set_config('request.jwt.claim.sub', current_setting('test.shop_other'), true);
+do $$ begin
+  update public.shopping_items set deleted_at=now(), version=version+1 where id in (current_setting('test.private_item')::uuid,current_setting('test.family_item')::uuid);
+  if found then raise exception 'FAIL: outsider can delete item'; end if;
+end $$;
+select set_config('request.jwt.claim.sub', current_setting('test.shop_a'), true);
+do $$ begin
+  update public.shopping_items set deleted_at=now(), version=version+1 where id=current_setting('test.family_item')::uuid and version=1;
+  if found then raise exception 'FAIL: stale delete accepted'; end if;
+  update public.shopping_items set deleted_at=now(), version=version+1 where id=current_setting('test.family_item')::uuid and deleted_at is null;
+  if not found then raise exception 'FAIL: delete with removed assignee failed'; end if;
+  update public.shopping_items set deleted_at=now(), version=version+1 where id=current_setting('test.private_item')::uuid and deleted_at is null;
+  if not found then raise exception 'FAIL: private delete failed'; end if;
+  if exists(select 1 from public.shopping_items where id in (current_setting('test.private_item')::uuid,current_setting('test.family_item')::uuid) and deleted_at is null) then
+    raise exception 'FAIL: deleted item remains active'; end if;
+  update public.shopping_items set deleted_at=now(), version=version+1 where id=current_setting('test.family_item')::uuid and deleted_at is null;
+  if found then raise exception 'FAIL: repeated delete changed item'; end if;
+end $$;
 rollback;
-select 'PASS: shopping family/private isolation and category link';
+select 'PASS: shopping isolation, category link and version-safe deletion';

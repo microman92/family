@@ -70,6 +70,16 @@ describe('Добавление позиции', () => {
     mocks.read.mockResolvedValue({ data: { title: 'Другое' }, error: null });
     expect((await addShoppingPosition({}, form())).error).toBeTruthy();
   });
+  it('повтор добавления удалённой позиции сохраняет отметку удаления', async () => {
+    await addShoppingPosition({}, form());
+    const original = mocks.insert.mock.calls[0]?.[0];
+    mocks.insert.mockResolvedValue({ error: { code: '23505' } });
+    mocks.read.mockResolvedValue({
+      data: { ...original, deleted_at: new Date().toISOString() },
+      error: null,
+    });
+    expect((await addShoppingPosition({}, form())).message).toBe('Позиция уже удалена.');
+  });
   it('нормализует категорию и цену с ведущими нулями для повторного запроса', async () => {
     const data = form();
     data.set('price', '00012000');

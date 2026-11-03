@@ -234,7 +234,7 @@ family-space/
 |---|---|
 | Auth / family | `profiles(user_id, display_name, avatar_path, locale, timezone)`; `families(id,name,timezone,currency,created_by)`; `family_members(id,family_id,user_id?,role,status,permissions)`; `member_profiles(family_id,display_name,linked_member_id?)`; `family_invites(family_id,token_hash,expires_at,uses_left,role,created_by)` |
 | Общие категории | `shopping_categories(id,scope...,name,icon,color,archived_at)`; `finance_categories(id,scope...,type,income_or_expense,nominal_account_id)`; `tags` и join-таблицы при необходимости |
-| Покупки | `shopping_items(id,scope...,title,category_id,planned_qty,unit,planned_unit_price,priority,big_purchase,location,due_at,status,assigned_to,version)`; `purchase_events(id,shopping_item_id,qty,actual_total,occurred_at,actor_user_id,financial_tx_id,correction_of_id?)` |
+| Покупки | `shopping_items(id,scope...,title,category_id,planned_qty,unit,planned_unit_price,priority,big_purchase,location,due_at,status,assigned_to,version,deleted_at)`; `purchase_events(id,shopping_item_id,qty,actual_total,occurred_at,actor_user_id,financial_tx_id,correction_of_id?)` |
 | Журнал | `finance_accounts(id,scope...,kind,subtype,name,currency,is_system,archived_at)`; `finance_transactions(id,scope...,type,category_id?,occurred_at,status,source_type,source_id,source_event_id,request_id,actor_user_id,description,reversed_by?)`; `ledger_postings(id,transaction_id,account_id,amount_signed)`; `financial_audit(id,transaction_id,action,actor_user_id,reason,created_at)` |
 | Бюджеты | `budgets(id,scope...,month_key,category_id?,limit_amount,version)`; `budget_threshold_notifications(...)` для подавления повторов |
 | Долги | `debts(id,scope...,direction,kind,counterparty_name,principal_amount,ledger_account_id,interest_mode,rate?,started_at,due_at,status)`; `debt_schedule(id,debt_id,due_at,principal_due,interest_due,fees_due,status)`; `debt_payment_allocations(id,schedule_id,financial_tx_id,principal_paid,interest_paid,fee_paid)` |
@@ -419,6 +419,8 @@ interface LedgerPostingPort {
 - Финансовые записи, платежи, долги и накопления **не проводить офлайн** в V1.
 
 ## 10. Дизайн-система и UX
+
+Удаление позиции подтверждается отдельным действием и записывает `deleted_at` с увеличением `version`. Сервер определяет текущую семью или владельца из сессии, проверяет ожидаемую версию и RLS. Активный список и его плановая сумма фильтруются по `deleted_at IS NULL`. Повтор удаления безопасен, повтор исходного добавления использует тот же ID и учитывает сохранённую отметку удаления. Редактирование исключает удалённые строки. Проверка связей допускает отметку удаления неизменённой позиции после выхода назначенного исполнителя из семьи. Фактические финансовые записи исправляются по правилам журнала.
 
 Уточнение покупок от 04.11.2026 — клиентский степпер хранит выбранную категорию в рамках текущей вкладки `family/private`. Каждое нажатие «Добавить ещё» отправляет одну позицию, очищает поля после подтверждённого сохранения и сохраняет выбор категории. Сервер повторно проверяет сессию, scope, категорию и поля. UUID запроса используется как первичный ID позиции. Повтор с тем же UUID принимается только при совпадении полей доступной через RLS записи, что защищает от дубля при сетевом повторе. Прежнее серверное действие быстрого добавления доступно существующим вызовам.
 

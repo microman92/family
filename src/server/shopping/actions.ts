@@ -76,7 +76,7 @@ async function insertShoppingItem(form: FormData, requestId?: string): Promise<A
     const { data: existing, error: readError } = await client
       .from('shopping_items')
       .select(
-        'title,planned_qty,unit,planned_unit_price,priority,location,preset_id,category_id,due_date,assigned_to,big_purchase,visibility,family_id,owner_user_id',
+        'title,planned_qty,unit,planned_unit_price,priority,location,preset_id,category_id,due_date,assigned_to,big_purchase,visibility,family_id,owner_user_id,deleted_at',
       )
       .eq('id', requestId)
       .maybeSingle();
@@ -90,6 +90,10 @@ async function insertShoppingItem(form: FormData, requestId?: string): Promise<A
       return {
         error: 'Не удалось подтвердить сохранение. Обновите список перед повторным добавлением.',
       };
+    if (existing?.deleted_at) {
+      revalidatePath('/shopping');
+      return { message: 'Позиция уже удалена.' };
+    }
   } else if (error) {
     return {
       error:
@@ -144,6 +148,7 @@ export async function updateShoppingItem(
     .update({ ...item, version: fields.data.version + 1 })
     .eq('id', fields.data.id)
     .eq('version', fields.data.version)
+    .is('deleted_at', null)
     .eq('visibility', scope);
   query =
     scope === 'family'
@@ -154,6 +159,53 @@ export async function updateShoppingItem(
   if (!data) return 'conflict';
   revalidatePath('/shopping');
   return 'updated';
+}
+
+export async function deleteShoppingItem(_state: AuthState, form: FormData): Promise<AuthState> {
+  const fields = z
+    .object({
+      id: z.uuid(),
+      version: z.coerce.number().int().positive().max(2147483646),
+      scope: z.enum(['family', 'private']),
+    })
+    .safeParse({ id: form.get('id'), version: form.get('version'), scope: form.get('scope') });
+  if (!fields.success) return { error: 'Не удалось определить позицию. Обновите список.' };
+  try {
+    const { client, user } = await getCurrentUser();
+    const { scope, id, version } = fields.data;
+    const family = scope === 'family' ? await requireCurrentFamilyCapability('members.read') : null;
+    const scopeColumn = scope === 'family' ? 'family_id' : 'owner_user_id';
+    const scopeId = family?.familyId ?? user.id;
+    const { data, error } = await client
+      .from('shopping_items')
+      .update({ deleted_at: new Date().toISOString(), version: version + 1 })
+      .eq('id', id)
+      .eq('version', version)
+      .eq('visibility', scope)
+      .eq(scopeColumn, scopeId)
+      .is('deleted_at', null)
+      .select('id')
+      .maybeSingle();
+    if (error) return { error: 'Не удалось удалить позицию. Попробуйте ещё раз.' };
+    if (!data) {
+      const existing = await client
+        .from('shopping_items')
+        .select('deleted_at')
+        .eq('id', id)
+        .eq('visibility', scope)
+        .eq(scopeColumn, scopeId)
+        .maybeSingle();
+      if (existing.error) return { error: 'Не удалось проверить позицию. Попробуйте ещё раз.' };
+      if (existing.data && !existing.data.deleted_at)
+        return { error: 'Позиция изменилась. Обновите список перед удалением.' };
+    }
+    revalidatePath('/shopping');
+    return { message: 'Позиция удалена.' };
+  } catch (error) {
+    if (error instanceof AccessDeniedError)
+      return { error: 'Нет доступа к этому списку. Войдите снова.' };
+    throw error;
+  }
 }
 
 export async function saveShoppingCategory(form: FormData) {
