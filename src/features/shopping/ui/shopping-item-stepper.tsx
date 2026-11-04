@@ -250,12 +250,19 @@ export function ShoppingItemStepper({
         <p className={styles.hint}>
           Выберите категорию один раз, затем добавляйте в неё позиции подряд.
         </p>
-        <div className={styles.categories}>
+        <p className={styles.scrollHint}>Листайте категории вправо →</p>
+        <div
+          className={styles.categories}
+          role="region"
+          aria-label="Категории покупок"
+          tabIndex={0}
+        >
           {categories.map((item) => (
             <button
               key={item.value}
               type="button"
               className={styles.category}
+              title={item.name}
               onClick={() => {
                 setCategory(item.value);
                 setFeedback({});

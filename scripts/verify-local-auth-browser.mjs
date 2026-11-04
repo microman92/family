@@ -191,9 +191,10 @@ try {
     await page.getByLabel('Крупная покупка').check();
     await page.getByRole('button', { name: 'Добавить и завершить', exact: true }).click();
     await page.getByText('Тестовая общая покупка').waitFor();
-    await page.getByLabel('Срочные').check();
-    await page.getByLabel('Крупные', { exact: true }).check();
-    await page.getByRole('button', { name: 'Показать', exact: true }).click();
+    await page.getByRole('link', { name: 'Срочные', exact: true }).click();
+    await page.waitForURL('**/shopping?scope=family&urgent=1');
+    await page.getByRole('link', { name: 'Крупные', exact: true }).click();
+    await page.waitForURL('**/shopping?scope=family&urgent=1&big=1');
     await page.getByText('Тестовая общая покупка').waitFor();
     if ((await page.getByText('Тестовая общая покупка').count()) !== 1)
       throw new Error('Shopping filters duplicate an item');

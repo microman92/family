@@ -36,6 +36,13 @@ export default async function Page({
     if (!(error instanceof AccessDeniedError)) throw error;
   }
   const selected = scope === 'family' && !familyId ? 'private' : scope;
+  const filterLink = (change: { sort?: string; urgent?: boolean; big?: boolean }) => {
+    const next = new URLSearchParams({ scope: selected });
+    if (change.urgent ?? params.urgent === '1') next.set('urgent', '1');
+    if (change.big ?? params.big === '1') next.set('big', '1');
+    if ((change.sort ?? params.sort) === 'due') next.set('sort', 'due');
+    return `/shopping?${next.toString()}`;
+  };
   const tabLink = (nextScope: 'family' | 'private') => {
     const next = new URLSearchParams({ scope: nextScope });
     if (params.urgent === '1') next.set('urgent', '1');
@@ -129,32 +136,45 @@ export default async function Page({
                       : 'Не удалось сохранить покупку. Попробуйте ещё раз.'}
               </p>
             )}
-            <form className={styles.filters} action="/shopping">
-              <input type="hidden" name="scope" value={selected} />
-              <label>
-                Сортировка
-                <select name="sort" defaultValue={params.sort === 'due' ? 'due' : 'new'}>
-                  <option value="new">Новые сначала</option>
-                  <option value="due">По дате</option>
-                </select>
-              </label>
-              <label className={styles.checkbox}>
-                <input
-                  type="checkbox"
-                  name="urgent"
-                  value="1"
-                  defaultChecked={params.urgent === '1'}
-                />{' '}
-                Срочные
-              </label>
-              <label className={styles.checkbox}>
-                <input type="checkbox" name="big" value="1" defaultChecked={params.big === '1'} />{' '}
-                Крупные
-              </label>
-              <Button type="submit" variant="outline">
-                Показать
-              </Button>
-            </form>
+            <div className={styles.filters}>
+              <nav className={styles.sort} aria-label="Сортировка покупок">
+                <Link
+                  href={filterLink({ sort: 'new' })}
+                  scroll={false}
+                  aria-current={params.sort !== 'due' ? 'true' : undefined}
+                >
+                  Новые сначала
+                </Link>
+                <Link
+                  href={filterLink({ sort: 'due' })}
+                  scroll={false}
+                  aria-current={params.sort === 'due' ? 'true' : undefined}
+                >
+                  Ближайший срок
+                </Link>
+              </nav>
+              <nav className={styles.filterChips} aria-label="Фильтры покупок">
+                <Link
+                  href={filterLink({ urgent: params.urgent !== '1' })}
+                  scroll={false}
+                  aria-current={params.urgent === '1' ? 'true' : undefined}
+                >
+                  Срочные
+                </Link>
+                <Link
+                  href={filterLink({ big: params.big !== '1' })}
+                  scroll={false}
+                  aria-current={params.big === '1' ? 'true' : undefined}
+                >
+                  Крупные
+                </Link>
+                {(params.urgent === '1' || params.big === '1') && (
+                  <Link href={filterLink({ urgent: false, big: false })} scroll={false}>
+                    Сбросить фильтры
+                  </Link>
+                )}
+              </nav>
+            </div>
             {items?.length ? (
               <>
                 <p className={styles.empty}>
@@ -177,6 +197,24 @@ export default async function Page({
                             remove={deleteShoppingItem}
                           />
                         </div>
+                        <small className={styles.itemMeta}>
+                          {item.preset_id
+                            ? (presets?.find((preset) => preset.id === item.preset_id)?.name ??
+                              'Без категории')
+                            : item.category_id
+                              ? (categories?.find((category) => category.id === item.category_id)
+                                  ?.name ?? 'Архивная категория')
+                              : 'Без категории'}{' '}
+                          · {item.planned_qty} {item.unit} ·{' '}
+                          {item.planned_unit_price === null
+                            ? 'Цена не указана'
+                            : `${item.planned_unit_price} сум за единицу`}
+                          {item.priority === 'urgent' && ' · Срочно'}
+                          {item.big_purchase && ' · Крупная'}
+                          {item.due_date && ` · До ${item.due_date}`}
+                          {item.assigned_to &&
+                            ` · ${members?.find((member: { member_id: string }) => member.member_id === item.assigned_to)?.display_name ?? 'Участник недоступен'}`}
+                        </small>
                         <details className={styles.edit}>
                           <summary>Редактировать</summary>
                           <ShoppingEditForm key={item.version}>
@@ -302,30 +340,16 @@ export default async function Page({
                           </ShoppingEditForm>
                         </details>
                       </div>
-                      <small className={styles.itemMeta}>
-                        {item.preset_id
-                          ? (presets?.find((preset) => preset.id === item.preset_id)?.name ??
-                            'Без категории')
-                          : item.category_id
-                            ? (categories?.find((category) => category.id === item.category_id)
-                                ?.name ?? 'Архивная категория')
-                            : 'Без категории'}{' '}
-                        · {item.planned_qty} {item.unit} ·{' '}
-                        {item.planned_unit_price === null
-                          ? 'Цена не указана'
-                          : `${item.planned_unit_price} сум за единицу`}
-                        {item.priority === 'urgent' && ' · Срочно'}
-                        {item.big_purchase && ' · Крупная'}
-                        {item.due_date && ` · До ${item.due_date}`}
-                        {item.assigned_to &&
-                          ` · ${members?.find((member: { member_id: string }) => member.member_id === item.assigned_to)?.display_name ?? 'Участник недоступен'}`}
-                      </small>
                     </li>
                   ))}
                 </ul>
               </>
             ) : (
-              <p className={styles.empty}>Список пока пуст. Добавьте первую покупку.</p>
+              <p className={styles.empty}>
+                {params.urgent === '1' || params.big === '1'
+                  ? 'По выбранным фильтрам покупок нет. Сбросьте фильтры, чтобы увидеть весь список.'
+                  : 'Список пока пуст. Добавьте первую покупку.'}
+              </p>
             )}
           </>
         )}

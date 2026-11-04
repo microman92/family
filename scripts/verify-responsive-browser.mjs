@@ -131,6 +131,20 @@ try {
   await page.goto(`${origin}/shopping?scope=family&location=online`);
   if (await page.locator('select[name="location"]').count())
     throw new Error('Place selector is still visible');
+  const categoryRail = page.getByRole('region', { name: 'Категории покупок', exact: true });
+  const rail = await categoryRail.evaluate((node) => {
+    node.scrollLeft = node.scrollWidth;
+    return { width: node.clientWidth, content: node.scrollWidth, offset: node.scrollLeft };
+  });
+  if (rail.content <= rail.width || rail.offset === 0)
+    throw new Error('Category rail does not scroll horizontally');
+  if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1))
+    throw new Error('Category rail overflows the page');
+  await categoryRail.screenshot({ path: `${output}/category-rail-mobile.png` });
+  await categoryRail.getByRole('button').last().focus();
+  await page.keyboard.press('Enter');
+  await page.getByLabel('Название покупки').waitFor();
+  await page.getByRole('button', { name: 'Сменить категорию' }).click();
   await page.getByRole('button', { name: 'Продукты', exact: true }).click();
   const stepper = page.getByRole('region', { name: 'Новая позиция' });
   await stepper.getByLabel('Название покупки').fill('Картошка');
@@ -297,6 +311,56 @@ try {
   if (!privateDeleted.deleted_at) throw new Error('Private deletion failed');
   console.log('PASS: shopping delete, cancel, private scope, stale version and retries.');
 
+  await page.goto(`${origin}/shopping?scope=family`);
+  const sorting = page.getByRole('navigation', { name: 'Сортировка покупок' });
+  const filters = page.getByRole('navigation', { name: 'Фильтры покупок' });
+  await filters.getByRole('link', { name: 'Срочные', exact: true }).click();
+  await page.waitForURL('**/shopping?scope=family&urgent=1');
+  await filters.getByRole('link', { name: 'Крупные', exact: true }).click();
+  await page.waitForURL('**/shopping?scope=family&urgent=1&big=1');
+  await sorting.getByRole('link', { name: 'Ближайший срок' }).click();
+  await page.waitForURL('**/shopping?scope=family&urgent=1&big=1&sort=due');
+  if (
+    (await page
+      .locator('li')
+      .filter({ has: page.getByText(title, { exact: true }) })
+      .count()) !== 1
+  )
+    throw new Error('Combined filters lost the urgent big item');
+  if (await page.getByText('Молоко пастеризованное', { exact: true }).count())
+    throw new Error('Filters did not exclude a normal item');
+  await filters.getByRole('link', { name: 'Сбросить фильтры' }).click();
+  await page.waitForURL('**/shopping?scope=family&sort=due');
+  const rows = page
+    .locator('ul')
+    .filter({ has: page.getByText(title, { exact: true }) })
+    .locator(':scope > li');
+  await rows.first().getByText(title, { exact: true }).waitFor();
+  await page.getByText('Молоко пастеризованное', { exact: true }).waitFor();
+  await sorting.getByRole('link', { name: 'Новые сначала' }).click();
+  await page.waitForURL('**/shopping?scope=family');
+  if (await rows.first().getByText(title, { exact: true }).count())
+    throw new Error('Newest sorting did not reorder the list');
+  const metadataFirst = await rows.first().evaluate((row) => {
+    const metadata = row.querySelector('small');
+    const edit = row.querySelector('details');
+    return Boolean(
+      metadata && edit && metadata.compareDocumentPosition(edit) & Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+  });
+  if (!metadataFirst) throw new Error('Item metadata is still below editing');
+  await page.screenshot({ path: `${output}/shopping-filters-mobile.png`, fullPage: true });
+  await page.getByRole('link', { name: 'Личное', exact: true }).click();
+  await page.waitForURL('**/shopping?scope=private');
+  await filters.getByRole('link', { name: 'Срочные', exact: true }).click();
+  await page.waitForURL('**/shopping?scope=private&urgent=1');
+  await page.getByText('По выбранным фильтрам покупок нет.', { exact: false }).waitFor();
+  await page.getByRole('link', { name: 'Общее', exact: true }).click();
+  await page.waitForURL('**/shopping?scope=family&urgent=1');
+  console.log(
+    'PASS: category horizontal scroll and keyboard, immediate filters, ordering and item hierarchy.',
+  );
+
   const routes = [
     '/dashboard',
     '/family',
@@ -331,6 +395,30 @@ try {
             });
         }
         if (route === '/shopping') {
+          const rail = page.getByRole('region', { name: 'Категории покупок', exact: true });
+          const cards = await rail
+            .getByRole('button')
+            .evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().height));
+          if (cards.some((height) => height > 129))
+            failures.push(`${theme} ${width}: category card stretched`);
+          if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1))
+            failures.push(`${theme} ${width}: category rail overflows the page`);
+          if ([375, 1440].includes(width)) {
+            await page.evaluate(() => window.scrollTo(0, 0));
+            await page.screenshot({
+              path: `${output}/shopping-categories-${theme}-${width}.png`,
+              fullPage: true,
+            });
+          }
+          if ([320, 1440].includes(width)) {
+            const categoriesAxe = await new AxeBuilder({ page })
+              .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+              .analyze();
+            if (categoriesAxe.violations.length)
+              failures.push(
+                `${theme} ${width}: category axe ${categoriesAxe.violations.map((violation) => violation.id).join(', ')}`,
+              );
+          }
           await page.getByRole('button', { name: 'Продукты', exact: true }).click();
           await page.locator('details').evaluateAll((nodes) => {
             for (const node of nodes) node.open = true;
